@@ -1,0 +1,5 @@
+inputs:
+  # Required: git-hooks not bundled by default in devenv 2.0
+  git-hooks:
+    url: github:cachix/git-hooks.nix
+    flake: false
