@@ -6,6 +6,22 @@
 
 ---
 
+## Table of Contents
+
+1. [Core Flake Commands](#core-flake-commands)
+2. [NixOS Commands](#nixos-commands)
+3. [Home Manager Commands](#home-manager-commands)
+4. [Garbage Collection](#garbage-collection)
+5. [Package Management (Without NixOS / Profiles)](#package-management-without-nixos--profiles)
+6. [Debugging and Introspection](#debugging-and-introspection)
+7. [Migration Command Map](#migration-command-map)
+8. [Formatting](#formatting)
+9. [Useful Flags](#useful-flags)
+
+For symptom-driven diagnosis rather than command reference, see `troubleshooting.md`.
+
+---
+
 ## Core Flake Commands
 
 ### Inspection

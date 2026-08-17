@@ -22,11 +22,11 @@
 
 | Criterion | flake-parts | flake-utils | Raw |
 |---|---|---|---|
-| New project | ✅ Default | ❌ | Only trivial |
-| Enterprise / multi-output | ✅ | ❌ | ❌ |
-| Reading third-party code | — | ✅ Understand | ✅ Understand |
-| Single system, one package | — | — | ✅ OK |
-| NixOS module development | ✅ | Possible | Possible |
+| New project | Default | no | only if trivial |
+| Enterprise / multi-output | yes | no | no |
+| Reading third-party code | — | read-only | read-only |
+| Single system, one package | — | — | acceptable |
+| NixOS module development | yes | possible | possible |
 
 Decision: **flake-parts for all new work.** Use flake-utils knowledge only to read/maintain
 legacy flakes.
@@ -88,7 +88,7 @@ perSystem = { pkgs, ... }: {
     version = "1.0.0";
     src     = ./.;
 
-    buildInputs = [ pkgs.libfoo ];  # verify with nixos-tools: nixpkgs_search "libfoo"
+    buildInputs = [ pkgs.libfoo ];  # verify with nixos-tools: nix {"action":"search","query":"libfoo"}
 
     buildPhase   = "make";
     installPhase = "make install PREFIX=$out";
@@ -134,24 +134,16 @@ perSystem = { pkgs, ... }: {
 
 ### flake-parts Module Anatomy
 
-A flake-parts module is a function returning an attribute set with `options` and `config`:
+A flake-parts module declares options with `flake-parts-lib.mkPerSystemOption` and
+contributes outputs by defining `perSystem`. Both have merge semantics that produce
+empty outputs with no error when a definition is guarded or a file is unreachable —
+read `flake-parts-semantics.md` before writing one.
 
 ```nix
 # modules/my-feature.nix — a flake-parts module, not a NixOS module
-{ lib, flake-parts-lib, ... }:
-let
-  inherit (lib) mkOption types;
-  inherit (flake-parts-lib) mkPerSystemOption;
-in {
-  options.perSystem = mkPerSystemOption {
-    options.myFeature.enable = mkOption {
-      type    = types.bool;
-      default = false;
-    };
-  };
-
-  config.perSystem = { config, pkgs, ... }: lib.mkIf config.myFeature.enable {
-    packages.my-feature-pkg = pkgs.callPackage ./pkgs/my-feature {};
+_: {
+  perSystem = { pkgs, ... }: {
+    packages.my-feature-pkg = pkgs.callPackage ./pkgs/my-feature { };
   };
 }
 ```
@@ -160,6 +152,10 @@ Import in flake:
 ```nix
 imports = [ ./modules/my-feature.nix ];
 ```
+
+Conditional (`mkIf`-guarded) contributions and the `enable`-option pattern are covered
+in `flake-parts-semantics.md` — the guard is the single most common cause of a flake
+that evaluates cleanly and produces nothing.
 
 ---
 
@@ -219,7 +215,7 @@ Only for trivial, single-system cases. Hardcode system explicitly and document t
 ## 5. NixOS Module Authoring
 
 A NixOS module is a Nix expression that integrates with the NixOS module system.
-Query nixos-tools `nixos_options_search` before defining any option to check for conflicts
+Query nixos-tools `nix {"action":"search","type":"options","query":"<option>"}` before defining any option to check for conflicts
 with existing NixOS options.
 
 ### Module Anatomy
@@ -328,35 +324,9 @@ in {
 
 ### Overlay Scope: Global vs Scoped Instantiation
 
-The scope of an overlay's application has direct performance and cache implications.
-
-**Global Modification** — applies the overlay to the system-wide `pkgs` instance:
-```nix
-# In a NixOS module:
-{ nixpkgs.overlays = [ inputs.my-overlay.overlays.default ]; }
-```
-Every package in every module evaluates against patched nixpkgs. The overlaid nixpkgs
-has a different hash from the official cache namespace, reducing binary cache hits
-across the entire system. Use only when the patch must be consistent system-wide
-(e.g., security patches to `openssl`, `glibc`).
-
-**Scoped Instantiation** — creates a local nixpkgs with overlay applied:
-```nix
-perSystem = { system, ... }: let
-  overlaidPkgs = import inputs.nixpkgs {
-    inherit system;
-    overlays = [ inputs.my-overlay.overlays.default ];
-  };
-in {
-  packages.my-thing = overlaidPkgs.my-custom-package;
-  # System-global pkgs is unaffected; cache integrity preserved for all other outputs
-};
-```
-This limits overlay impact to exactly the packages that use `overlaidPkgs`. The system
-cache is preserved for everything else. Prefer this for organization package additions.
-
-**Decision rule:** Default to scoped instantiation. Use global only when system-wide
-consistency is the explicit requirement.
+Global (`nixpkgs.overlays`) versus scoped (a local `import nixpkgs { overlays = [ … ]; }`)
+changes both cache behavior and blast radius. Covered in full, with the decision rule, in
+`overlays-only-pattern.md §7`.
 
 ---
 
@@ -390,9 +360,11 @@ Flake equivalent:
 
 Migration steps:
 1. Run `nix flake init` to scaffold `flake.nix`
-2. Replace `import <nixpkgs> {}` with `nixpkgs.legacyPackages.${system}` or perSystem `pkgs`
+2. Replace `import <nixpkgs> {}` with `nixpkgs.legacyPackages.${system}`, or with the
+   `pkgs` argument inside `perSystem` — `pkgs` exists only there, never at the top level
+   of a flake-parts module (see `flake-parts-semantics.md`)
 3. Move `buildInputs` / `packages` verbatim — attribute paths are unchanged in nixpkgs
-4. Verify package attribute paths via nixos-tools `nixpkgs_search` (names may have changed)
+4. Verify package attribute paths via nixos-tools `nix {"action":"search","query":"<name>"}` (names may have changed)
 5. Add `flake.lock` to version control
 6. Delete `shell.nix` and `default.nix` after validation
 

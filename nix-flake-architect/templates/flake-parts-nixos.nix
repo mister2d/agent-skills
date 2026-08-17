@@ -18,7 +18,7 @@
   inputs = {
     # Primary nixpkgs channel. Choose one:
     #   nixos-unstable — rolling release, newest packages
-    #   nixos-24.11    — stable release (verify current via nixos-tools flakehub_search)
+    #   nixos-24.11    — stable release (verify current via nixos-tools: nix {"action":"search","source":"flakehub","query":"nixpkgs"})
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
     # Home Manager — manages user dotfiles and user-level services.
@@ -31,7 +31,7 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
     systems.url     = "github:nix-systems/default";
 
-    # Optional additional inputs — verify URLs via nixos-tools `flakehub_search`:
+    # Optional additional inputs — verify URLs via nixos-tools `nix {"action":"search","source":"flakehub","query":"<name>"}`:
     # sops-nix = {
     #   url = "github:Mic92/sops-nix";
     #   inputs.nixpkgs.follows = "nixpkgs";
@@ -101,7 +101,7 @@
               ./hosts/REPLACE_HOSTNAME/configuration.nix
 
               # Own NixOS modules (optional)
-              # self.nixosModules.myModule
+              # inputs.self.nixosModules.myModule
 
               # Home Manager as a NixOS module (system-managed user config)
               home-manager.nixosModules.home-manager

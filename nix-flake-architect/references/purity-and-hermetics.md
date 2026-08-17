@@ -5,6 +5,20 @@
 
 ---
 
+## Table of Contents
+
+1. [The Fundamental Rule](#the-fundamental-rule)
+2. [What Is Forbidden During Evaluation](#what-is-forbidden-during-evaluation)
+3. [The Purity Contract for `inputs`](#the-purity-contract-for-inputs)
+4. [`allowUnfree` and Broken Packages](#allowunfree-and-broken-packages)
+5. [Import From Derivation (IFD)](#import-from-derivation-ifd)
+6. [`nixConfig` — Substituters and Trust](#nixconfig--substituters-and-trust)
+7. [Passing Impurities Explicitly (When Unavoidable)](#passing-impurities-explicitly-when-unavoidable)
+8. [CI/CD Purity Enforcement](#cicd-purity-enforcement)
+9. [Sensitive Data — Secrets](#sensitive-data--secrets)
+
+---
+
 ## The Fundamental Rule
 
 Flake evaluation is **hermetic**. The Nix evaluator enforces that:

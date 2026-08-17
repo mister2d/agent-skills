@@ -370,7 +370,7 @@ For environments where Flakes are not enabled (legacy CI, `nix-shell` users), ad
 
 ```bash
 # Install flake-compat
-# Verify current URL via nixos-tools: flakehub_search "flake-compat"
+# Verify current URL via nixos-tools: nix {"action":"search","source":"flakehub","query":"flake-compat"}
 ```
 
 `default.nix`:
@@ -515,3 +515,32 @@ git ls-files pkgs/
 For overlay development workflows: add files to the git index (`git add`) immediately
 after creating them, before attempting any `nix` command. Staging without committing
 is sufficient for evaluation.
+
+---
+
+## 13. Validation
+
+Mode 2 checks, additional to the Phase 6 checklist in `SKILL.md`.
+
+- [ ] **CLI trade-offs disclosed:** the user has seen the CLI Impact Matrix (§3) before
+  the adoption decision was made
+- [ ] `overlays.default` is a function `final: prev: { ... }`, not a derivation
+- [ ] `overlays.default` is in the `flake = { ... }` block, not under `perSystem`
+- [ ] Dependencies within the overlay body reference `final`, not `prev` — except when
+  calling the original `prev.<name>` to avoid infinite recursion in an override
+- [ ] No `prev.attrSet // { ... }` nested merge on recursive package sets; use
+  `prev.python3.override { packageOverrides = ...; }` instead
+- [ ] `specialArgs.lib` is not overridden; custom helpers go in `flake.lib` or
+  `specialArgs.<customName>`
+- [ ] `checks.<system>.*` includes at least one smoke test that instantiates the overlay,
+  so `nix flake check` catches real regressions rather than schema drift alone
+- [ ] Smoke-test `pkgs` uses scoped instantiation:
+  `import nixpkgs { overlays = [ self.overlays.default ]; }`
+- [ ] `devShells.default` present for overlay contributors — internal tooling, not consumer API
+- [ ] `formatter.<system>` set so `nix fmt` works for contributors
+- [ ] Any exposed `nixosModules.*` uses `imports`, never bare `import`, for sub-modules
+- [ ] Any exposed `flakeModules.*` is documented as flake-parts-only, not a standard CLI output
+- [ ] `flake-compat` shims (`default.nix`, `shell.nix`) added if legacy `nix-shell` support is required
+- [ ] New package files staged with `git add` before any `nix flake check` (§12)
+- [ ] Package attribute names checked against nixpkgs for collisions with existing
+  top-level attrs: `nix {"action":"search","query":"<name>"}`

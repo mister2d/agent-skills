@@ -4,7 +4,7 @@
 # Framework: flake-parts (modern standard — preferred for all new work)
 #
 # Before using this template:
-#   1. Verify all package attribute paths via nixos-tools `nixpkgs_search`
+#   1. Verify all package attribute paths via nixos-tools `nix {"action":"search","query":"<name>"}`
 #   2. Update `description` to reflect the project
 #   3. Choose a nixpkgs channel:
 #      - "nixos-unstable" — latest packages, less stability guarantee
@@ -48,17 +48,19 @@
             pname   = "REPLACE_ME";         # package name, no spaces
             version = "0.1.0";
 
-            src = ./.;                      # project source root
+            # $src is a copy of THIS directory: its files land at the top of the
+            # unpacked build dir, not under a subdirectory named after it.
+            src = ./.;
 
             # Build-time dependencies (available during build, not at runtime):
             nativeBuildInputs = [
-              # pkgs.cmake           # verify: nixpkgs_search "cmake"
-              # pkgs.pkg-config      # verify: nixpkgs_search "pkg-config"
+              # pkgs.cmake           # verify: nix {"action":"search","query":"cmake"}
+              # pkgs.pkg-config      # verify: nix {"action":"search","query":"pkg-config"}
             ];
 
             # Runtime dependencies (linked into the output, available at runtime):
             buildInputs = [
-              # pkgs.libssl          # verify: nixpkgs_search "openssl"
+              # pkgs.libssl          # verify: nix {"action":"search","query":"openssl"}
             ];
 
             buildPhase   = "make";
@@ -71,7 +73,7 @@
           default = pkgs.mkShell {
             # Packages available on PATH inside `nix develop`:
             packages = [
-              # VERIFY ALL ATTRIBUTE PATHS via nixos-tools `nixpkgs_search` before adding.
+              # VERIFY ALL ATTRIBUTE PATHS via nixos-tools `nix {"action":"search","query":"<name>"}` before adding.
               # pkgs.git
               # pkgs.curl
               # pkgs.gnumake

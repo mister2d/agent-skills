@@ -4,8 +4,8 @@
 #           or for non-NixOS systems (Ubuntu, macOS via nix-darwin companion).
 # Activation: `home-manager switch --flake .#USERNAME`
 #
-# Query nixos-tools `home_manager_options_search` before writing any programs.* block.
-# Query nixos-tools `darwin_options_search` if target is macOS.
+# Query nixos-tools `nix {"action":"search","source":"home-manager","query":"<option>"}` before writing any programs.* block.
+# Query nixos-tools `nix {"action":"search","source":"darwin","query":"<option>"}` if target is macOS.
 #
 {
   description = "REPLACE_ME: Home Manager configuration for USERNAME";
@@ -42,7 +42,7 @@
             home.homeDirectory = "/home/REPLACE_USERNAME"; # macOS: /Users/USERNAME
 
             # Required: match the home-manager release you are using.
-            # Verify current version via nixos-tools flakehub_search "home-manager"
+            # Verify current version via nixos-tools nix {"action":"search","source":"flakehub","query":"home-manager"}
             home.stateVersion = "24.11";
           }
         ];
@@ -58,7 +58,7 @@
 # { config, pkgs, lib, ... }:
 # {
 #   # ── User Packages ──────────────────────────────────────────────────────────
-#   # Verify all attribute paths via nixos-tools `nixpkgs_search`
+#   # Verify all attribute paths via nixos-tools `nix {"action":"search","query":"<name>"}`
 #   home.packages = [
 #     pkgs.htop
 #     pkgs.ripgrep
@@ -66,7 +66,7 @@
 #   ];
 #
 #   # ── Program Modules ────────────────────────────────────────────────────────
-#   # Query nixos-tools `home_manager_options_search "programs.git"` before editing
+#   # Query nixos-tools `nix {"action":"search","source":"home-manager","query":"programs.git"}` before editing
 #   programs.git = {
 #     enable    = true;
 #     userName  = "REPLACE_ME";
@@ -107,7 +107,7 @@
 #   };
 #
 #   # ── User Services ──────────────────────────────────────────────────────────
-#   # Query: home_manager_options_search "services.syncthing"
+#   # Query: nix {"action":"search","source":"home-manager","query":"services.syncthing"}
 #   services.syncthing.enable = true;
 #
 #   # ── Required state version ─────────────────────────────────────────────────

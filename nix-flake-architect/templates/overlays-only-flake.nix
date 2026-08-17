@@ -61,7 +61,7 @@
 
             # Does the primary package evaluate and build?
             smoke-primary = overlaidPkgs.REPLACE_PACKAGE_NAME;
-            # verify attr path: nixos-tools nixpkgs_search "REPLACE_PACKAGE_NAME"
+            # verify attr path: nixos-tools nix {"action":"search","query":"REPLACE_PACKAGE_NAME"}
 
             # Does core nixpkgs still evaluate correctly after the overlay?
             # Detects broken recursive set merges (see references/overlays-only-pattern.md §6)
@@ -113,7 +113,7 @@
 
           # ── New packages (additions to nixpkgs) ─────────────────────────────
           # Pattern: callPackage from ./pkgs/<name>/default.nix
-          # Verify the attribute name doesn't conflict: nixos-tools nixpkgs_search "name"
+          # Verify the attribute name doesn't conflict: nixos-tools nix {"action":"search","query":"name"}
           #
           REPLACE_PACKAGE_NAME = final.callPackage ./pkgs/REPLACE_PACKAGE_NAME {};
 

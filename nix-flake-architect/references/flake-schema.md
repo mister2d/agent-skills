@@ -5,6 +5,17 @@
 
 ---
 
+## Table of Contents
+
+1. [`flake.nix` Top-Level Structure](#flakenix-top-level-structure)
+2. [`inputs` Schema](#inputs-schema)
+3. [`outputs` Schema](#outputs-schema)
+4. [`nixConfig`](#nixconfig)
+5. [`self` — The Flake's Own Output Set](#self--the-flakes-own-output-set)
+6. [`flake.lock`](#flakelock)
+
+---
+
 ## `flake.nix` Top-Level Structure
 
 A `flake.nix` must be a Nix attribute set with exactly these top-level keys:

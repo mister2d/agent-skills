@@ -18,7 +18,7 @@
     systems.url     = "github:nix-systems/default";
 
     # The overlays-only flake being consumed.
-    # Verify URL via nixos-tools: flakehub_search "REPLACE_OVERLAY_NAME"
+    # Verify URL via nixos-tools: nix {"action":"search","source":"flakehub","query":"REPLACE_OVERLAY_NAME"}
     my-overlay = {
       url = "github:REPLACE_OWNER/REPLACE_OVERLAY_REPO";
       # Pin nixpkgs to prevent duplicate nixpkgs evaluations:
