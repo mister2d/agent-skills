@@ -1,0 +1,26 @@
+inputs:
+  nixpkgs:
+    url: github:cachix/devenv-nixpkgs/rolling
+  # devenv.nix uses git-hooks.hooks, and the claude.code hook shells out to
+  # the git-hooks runner, so the input must be declared.
+  git-hooks:
+    url: github:cachix/git-hooks.nix
+  # languages.python.version resolves through this input; without it
+  # evaluation stops and tells you to run `devenv inputs add`.
+  nixpkgs-python:
+    url: github:cachix/nixpkgs-python
+    inputs:
+      nixpkgs:
+        follows: nixpkgs
+
+# Activate profiles.default automatically; --profile ci overrides it.
+profile: default
+
+# secretspec.toml ships with this project. Enabling the integration requires
+# naming a provider, otherwise shell entry fails with
+# "No provider backend configured".
+secretspec:
+  enable: true
+  provider: env      # keyring | dotenv | env | onepassword | lastpass | ...
+
+require_version: ">=2.2"

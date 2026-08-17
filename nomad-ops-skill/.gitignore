@@ -1,0 +1,9 @@
+.nomad-docs-clone/
+references/raw-docs/
+node_modules/
+debug/
+METRICS.md
+dist/
+.DS_Store
+.env
+*.log

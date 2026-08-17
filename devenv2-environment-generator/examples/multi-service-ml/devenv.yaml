@@ -1,0 +1,17 @@
+inputs:
+  nixpkgs:
+    url: github:cachix/devenv-nixpkgs/rolling
+  # Required by languages.python.version.
+  nixpkgs-python:
+    url: github:cachix/nixpkgs-python
+    inputs:
+      nixpkgs:
+        follows: nixpkgs
+
+# Without this block the secretspec.toml next to it is inert. A provider is
+# required once the integration is enabled.
+secretspec:
+  enable: true
+  provider: env      # keyring | dotenv | env | onepassword | lastpass | ...
+
+require_version: ">=2.2"

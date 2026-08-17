@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "nixos-tools": {
+      "command": "mcp-nixos",
+      "args": []
+    },
+    "time": {
+      "command": "mcp-server-time",
+      "args": []
+    }
+  }
+}

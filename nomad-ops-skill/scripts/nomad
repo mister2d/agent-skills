@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# nomad — entry point shim for nomad-client.ts.
+#
+# Self-resolves its real location via readlink so it works correctly whether
+# invoked directly, via a symlink in PATH (install.sh), or from any CWD.
+export NODE_NO_WARNINGS=1
+
+# On NixOS hosts without modern Node in PATH, provisions jq + nodejs_24 + python312
+# transiently via nix-shell — no manual nix-shell invocation required.
+
+# Resolve the real path of this script, following symlinks.
+# readlink -f is GNU coreutils (Linux). BSD readlink (macOS) lacks -f;
+# fall back to a pure-shell traversal in that case.
+_resolve_real_dir() {
+  local target="${BASH_SOURCE[0]}"
+  if readlink -f "$target" &>/dev/null 2>&1; then
+    dirname "$(readlink -f "$target")"
+  else
+    # macOS / BSD fallback: walk the symlink chain manually.
+    local dir
+    while [[ -L "$target" ]]; do
+      dir="$(cd "$(dirname "$target")" && pwd)"
+      target="$(readlink "$target")"
+      [[ "$target" != /* ]] && target="${dir}/${target}"
+    done
+    cd "$(dirname "$target")" && pwd
+  fi
+}
+
+REAL_DIR="$(_resolve_real_dir)"
+CLIENT="${REAL_DIR}/nomad-client.ts"
+
+if [[ ! -f "${CLIENT}" ]]; then
+  printf 'error: nomad-client.ts not found at %s\n' "${CLIENT}" >&2
+  printf '       Reinstall with: bash /path/to/nomad-ops-skill/install.sh\n' >&2
+  exit 1
+fi
+
+if command -v node &>/dev/null && node -v | grep -qE '^v(2[2-9]|[3-9])'; then
+  # Node.js 22.18+ / 24+ supports native type stripping and transformation.
+  # We use --experimental-transform-types for non-erasable syntax like parameter properties.
+  exec node --no-warnings --experimental-transform-types "${CLIENT}" "$@"
+elif command -v npx &>/dev/null; then
+  exec npx ts-node "${CLIENT}" "$@"
+elif command -v nix-shell &>/dev/null; then
+  # Build a fully-quoted command string so args survive the nix-shell boundary.
+  # Use node --experimental-transform-types if nix-shell provides a modern node.
+  cmd="export NODE_NO_WARNINGS=1; exec node --no-warnings --experimental-transform-types $(printf '%q' "${CLIENT}")"
+  for arg in "$@"; do
+    cmd+=" $(printf '%q' "${arg}")"
+  done
+  exec nix-shell -p jq nodejs_24 python312 --run "${cmd}"
+else
+  printf 'error: node (v24+) or npx not found and nix-shell is not available.\n' >&2
+  printf '       Install Node.js 24+ or add it to your PATH.\n' >&2
+  exit 1
+fi

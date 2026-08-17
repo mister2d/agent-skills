@@ -1,0 +1,23 @@
+inputs:
+  nixpkgs:
+    url: github:cachix/devenv-nixpkgs/rolling
+  # Required: git-hooks is not a default input since devenv 2.0, and
+  # devenv.nix below uses git-hooks.hooks.
+  git-hooks:
+    url: github:cachix/git-hooks.nix
+  # Required by languages.python.version — pinning a Python version resolves
+  # through this input.
+  nixpkgs-python:
+    url: github:cachix/nixpkgs-python
+    inputs:
+      nixpkgs:
+        follows: nixpkgs
+
+# This project ships secretspec.toml, so the integration must be switched on.
+# A provider is mandatory once enabled — without one, shell entry fails with
+# "No provider backend configured".
+secretspec:
+  enable: true
+  provider: env      # keyring | dotenv | env | onepassword | lastpass | ...
+
+require_version: ">=2.2"

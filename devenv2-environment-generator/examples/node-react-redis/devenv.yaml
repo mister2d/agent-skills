@@ -1,0 +1,8 @@
+inputs:
+  nixpkgs:
+    url: github:cachix/devenv-nixpkgs/rolling
+  # devenv.nix uses git-hooks.hooks, so the input has to be declared.
+  git-hooks:
+    url: github:cachix/git-hooks.nix
+
+require_version: ">=2.2"

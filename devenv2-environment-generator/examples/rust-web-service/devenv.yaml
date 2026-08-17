@@ -1,0 +1,17 @@
+inputs:
+  nixpkgs:
+    url: github:cachix/devenv-nixpkgs/rolling
+  # Mandatory whenever devenv.nix uses git-hooks.hooks: the input stopped
+  # being implicit in devenv 2.0.
+  git-hooks:
+    url: github:cachix/git-hooks.nix
+  # Required by languages.rust.channel. Any channel other than the default
+  # resolves the toolchain through this input; without it evaluation stops
+  # with "To use 'languages.rust.channel', run devenv inputs add rust-overlay".
+  rust-overlay:
+    url: github:oxalica/rust-overlay
+    inputs:
+      nixpkgs:
+        follows: nixpkgs
+
+require_version: ">=2.2"

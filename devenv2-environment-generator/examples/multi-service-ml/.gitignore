@@ -1,0 +1,11 @@
+# devenv working state
+.devenv/
+.direnv/
+
+# Machine-local overrides
+devenv.local.nix
+devenv.local.yaml
+
+# Commit devenv.lock in a real project; it is ignored here because this
+# directory is a skill example, not a checked-out application.
+devenv.lock
