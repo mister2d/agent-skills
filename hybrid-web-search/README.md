@@ -98,9 +98,9 @@ Escalate to the **crawl4ai** skill when:
 **Recommended two-step pattern:**
 
 1. Run hybrid-web-search to identify the canonical entry URL
-2. Pass that URL to crawl4ai adaptive crawling for deep coverage:
+2. Pass that URL to the crawl4ai skill's adaptive crawler for deep coverage (run from the crawl4ai skill directory):
    ```bash
-   python scripts/adaptive_crawler.py <url> "<query>" --output kb.jsonl
+   bash scripts/adaptive_crawler.sh <url> "<query>" --output kb.jsonl
    ```
 
 ## References

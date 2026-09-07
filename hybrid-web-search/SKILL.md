@@ -99,7 +99,7 @@ The Crawl4AI service can also be used standalone to crawl specific URLs without 
 - **Reddit API blocks unauthenticated requests** — network security returns HTML error pages. The working endpoint is `https://www.reddit.com/r/{subreddit}/top/.json?limit={N}` which returns JSON directly.
 - **Hacker News top stories endpoint** — fetch IDs from `https://hacker-news.firebaseio.com/v0/topstories.json`, then fetch individual items via `https://hacker-news.firebaseio.com/v0/item/{ID}.json`.
 - **Health/medical topic searches require multi-stage refinement** — initial broad queries (e.g., "hantavirus USA 2026") often return European results or cruise ship outbreaks. Strategy: (1) start with `site:cdc.gov` or `site:who.int` to anchor to authoritative sources, (2) add specific disease names (e.g., "Andes virus" vs generic "hantavirus"), (3) specify geographic focus and time range. Avoid single-site queries that return zero results; combine `site:` with broader terms instead.
-- **Reddit blocks direct urllib requests with HTTP 403** — even with a User-Agent header, `urllib.request.urlopen` to `https://www.reddit.com/...` returns 403. The workaround: use Crawl4AI to crawl Reddit pages instead of hitting the API directly. If you need Reddit JSON data, use the hybrid-web-search pipeline (which goes through SearXNG) or crawl the page via Crawl4AI and extract text from the rendered HTML.
+- **Reddit blocks direct HTTP requests with HTTP 403** — even with a User-Agent header, a direct request to `https://www.reddit.com/...` returns 403. The workaround: use Crawl4AI to crawl Reddit pages instead of hitting the API directly. If you need Reddit JSON data, use the hybrid-web-search pipeline (which goes through SearXNG) or crawl the page via Crawl4AI and extract text from the rendered HTML.
 
 ## Skill Handoff: When to Escalate to crawl4ai
 
@@ -111,7 +111,7 @@ Use the crawl4ai skill (not this pipeline) when:
 
 **Recommended two-step pattern:**
 1. Run `hybrid-web-search` to identify the canonical entry URL for the topic
-2. Hand that URL + query to `crawl4ai` adaptive crawling: `python scripts/adaptive_crawler.py <url> "<query>"`
+2. Hand that URL + query to the crawl4ai skill's adaptive crawler (run from the crawl4ai skill dir): `bash scripts/adaptive_crawler.sh <url> "<query>" --output kb.jsonl`
 
 ## References
 - `references/api-quirks.md` — Crawl4AI and Orama v3 API quirks, spec-vs-reality mismatches, news chunking notes
