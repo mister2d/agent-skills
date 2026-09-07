@@ -42,7 +42,7 @@ The pipeline is also importable as a TypeScript module:
 ```typescript
 import { hybridSearch } from './src/search/pipeline.js';
 
-const result = await hybridSearch('async context managers python', {
+const result = await hybridSearch('async context managers', {
   maxCrawlUrls: 3,       // URLs to crawl after snippet ranking
   maxOutputChunks: 5,    // Max passages returned
   crawlScoreThreshold: 0.5,  // Minimum snippet score to trigger crawl
