@@ -1,6 +1,10 @@
 # Crawl4AI Agentic Skill (v0.9.0)
 
-A Python skill for deep, targeted web crawling. Interfaces exclusively with a hosted Crawl4AI instance over HTTP/HTTPS, completely eliminating local library dependencies. It includes ready-to-run scripts, a comprehensive configuration reference, and routing guidance for when to use this skill versus the hybrid-web-search pipeline.
+An **interpreter-free** skill for deep, targeted web crawling. It interfaces
+exclusively with a hosted Crawl4AI instance over HTTP/HTTPS — no local Python
+library, no `pip install`, no browser, no Docker. The scripts are `bash` +
+`curl` + `jq`; the hosted service runs the headless browser and returns
+markdown/HTML/links/extracted content.
 
 ## When to Use This vs. hybrid-web-search
 
@@ -17,121 +21,106 @@ A Python skill for deep, targeted web crawling. Interfaces exclusively with a ho
 1. `hybrid-web-search` finds the canonical entry URL for the topic
 2. Pass it here for comprehensive coverage:
    ```bash
-   python scripts/adaptive_crawler.py <url> "<query>" --output kb.jsonl
+   bash scripts/adaptive_crawler.sh <url> "<query>" --output kb.jsonl
    ```
 
 ## Requirements & Configuration
 
-No local Python library installation is needed. The skill communicates with the central service via REST API.
+No local installation of any kind is needed. The skill talks to the hosted
+service via REST.
 
-**Environment Variables:**
-- `CRAWL4AI_URL`: The URL of the hosted service (default: `http://localhost:8000`)
-- `CRAWL4AI_AUTH_TOKEN`: Optional Bearer token for authentication. Use this parameter if the endpoint requires authorization.
+**Environment Variables (all optional):**
+- `CRAWL4AI_URL` (or `CRAWL4AI_API_URL`): the hosted service URL
+  (default: `https://crawl4ai.service.internal.novuscotia.com`)
+- `CRAWL4AI_AUTH_TOKEN`: Bearer token for authentication
+  (default: `dummy`)
+
+The scripts resolve a JWT from the raw token via `POST /token` and fall back to
+the raw token if that endpoint is absent.
 
 ## Scripts
 
+All scripts are `bash` + `curl` + `jq` and share `scripts/c4a.sh`.
+
 ### Adaptive Crawling (recommended for research)
 
-Starts at one URL, intelligently follows links, and stops automatically when it has gathered sufficient information about the query.
+Starts at one URL, follows the most query-relevant links, and stops when
+coverage plateaus or `--max-pages` is hit.
 
 ```bash
-python scripts/adaptive_crawler.py https://docs.example.com "async context managers"
-python scripts/adaptive_crawler.py https://docs.example.com "async context managers" \
-    --max-pages 30 \
-    --confidence 0.8 \
-    --output knowledge_base.jsonl
+bash scripts/adaptive_crawler.sh https://docs.example.com "async context managers"
+bash scripts/adaptive_crawler.sh https://docs.example.com "async context managers" \
+    --max-pages 30 --top-k 3 --min-score 1 --output knowledge_base.jsonl
 ```
 
 ### Basic Crawling
 
-Single-URL markdown extraction:
+Single-URL markdown extraction (`POST /md`):
 
 ```bash
-python scripts/basic_crawler.py https://example.com
+bash scripts/basic_crawler.sh https://example.com
+bash scripts/basic_crawler.sh https://docs.example.com bm25 "machine learning"
 ```
 
 ### Batch Crawling
 
-Concurrent multi-URL processing from a file:
+Concurrent multi-URL processing from a file (`POST /crawl`):
 
 ```bash
-python scripts/batch_crawler.py urls.txt
+bash scripts/batch_crawler.sh urls.txt
 ```
 
 ### Extraction Pipeline
 
-Schema-based structured extraction — generate a CSS schema once with an LLM, then reuse it indefinitely without LLM calls:
+Schema-based structured extraction — generate a CSS schema once, then reuse it
+indefinitely without LLM calls:
 
 ```bash
-# Step 1: generate schema (one-time LLM call)
-python scripts/extraction_pipeline.py --generate-schema https://shop.com "extract products"
+# Step 1: generate a schema (one-time LLM job)
+bash scripts/extraction_pipeline.sh --generate-schema https://shop.com "extract products"
 
 # Step 2: fast extraction using the schema (no LLM)
-python scripts/extraction_pipeline.py --use-schema https://shop.com generated_schema.json
+bash scripts/extraction_pipeline.sh --use-schema https://shop.com generated_schema.json
 ```
 
-## Core Capabilities (REST API)
+## REST API (what the scripts call)
 
-All scripts utilize `scripts/crawl_service.py` to communicate with the hosted API. The API expects standard JSON structures rather than Python objects.
+| Method & path | Body | Returns |
+| --- | --- | --- |
+| `GET /health` | — | `{"status":"ok",...}` |
+| `POST /md` | `{"url", "f": raw\|fit\|bm25\|llm, "q"?}` | `{"markdown": "<string>", "success"}` |
+| `POST /crawl` | `{"urls":[...], "crawler_config":{...}, "browser_config":{...}?}` | `{"success", "results":[{markdown, html, links, media, metadata, extracted_content, ...}]}` |
+| `POST /llm/job` | `{"url", "q", "schema"?, "provider"?}` | job handle (async); poll `GET /llm/job/<task_id>` |
+| `POST /token` | `{"email", "api_token"}` | `{"access_token"}` |
 
-### Content Filtering (fit_markdown)
+`crawler_config` / `browser_config` accept the standard Crawl4AI config params
+(`page_timeout`, `wait_for`, `js_code`, `screenshot`, `session_id`,
+`extraction_strategy`, `markdown_generator`, `headless`, `user_agent`, ...).
+See [references/rest-api.md](references/rest-api.md) for the confirmed endpoint
+shapes and [references/complete-sdk-reference.md](references/complete-sdk-reference.md)
+for the full config-parameter reference.
 
-Apply filters like `BM25ContentFilter` by passing structured JSON parameters in `crawler_config`:
+### Content filtering (fit / bm25 / llm)
 
-```python
-crawler_params = {
-    "markdown_generator": {
-        "type": "DefaultMarkdownGenerator",
-        "params": {
-            "content_filter": {
-                "type": "BM25ContentFilter",
-                "params": {
-                    "user_query": "machine learning tutorials"
-                }
-            }
-        }
-    }
-}
-result = await crawl_url(url, crawler_params=crawler_params)
+Pass the filter via `POST /md`'s `f` (and `q` for relevance filters), or via
+`crawler_config.markdown_generator` in `POST /crawl`:
+
+```bash
+# single page, BM25-filtered
+bash scripts/basic_crawler.sh https://docs.example.com bm25 "machine learning tutorials"
 ```
 
-### Schema-Based Structured Extraction
+### Session management & dynamic content
 
-Highly efficient JSON/CSS extraction for repetitive page patterns:
+Pass the relevant flags in `crawler_config` (note: restricted endpoints may
+reject session persistence due to security policies):
 
-```python
-crawler_params = {
-    "extraction_strategy": {
-        "type": "JsonCssExtractionStrategy",
-        "params": {
-            "schema": {
-                "name": "articles",
-                "baseSelector": "article.post",
-                "fields": [
-                    {"name": "title", "selector": "h2", "type": "text"},
-                    {"name": "date", "selector": ".date", "type": "text"}
-                ]
-            }
-        }
-    }
-}
-```
-
-### Session Management & Dynamic Content
-
-You can manage sessions and execute custom JS by passing the relevant flags (Note: restricted endpoints may reject session persistence due to security policies).
-
-```python
-crawler_params = {
-    "wait_for": "css:.ajax-content",
-    "js_code": "window.scrollTo(0, document.body.scrollHeight);",
-    "page_timeout": 60000,
-    "session_id": "my_persistent_session"
-}
+```json
+{ "wait_for": "css:.ajax-content", "js_code": "window.scrollTo(0, document.body.scrollHeight);", "page_timeout": 60000, "session_id": "my_persistent_session" }
 ```
 
 ## References
 
-- `references/complete-sdk-reference.md` — Full SDK documentation (23K words)
-- `references/advanced-patterns.md` — Advanced configurations and usage patterns
-- `tests/` — Test scripts validating basic crawling, markdown generation, data extraction, and advanced features against the integration environment.
+- `references/rest-api.md` — confirmed hosted REST endpoint shapes
+- `references/complete-sdk-reference.md` — full config-parameter reference
+- `references/advanced-patterns.md` — advanced configurations and usage patterns

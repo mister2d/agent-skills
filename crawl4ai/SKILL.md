@@ -2,259 +2,127 @@
 name: crawl4ai
 description: Deep web crawling toolkit for known URLs or domains. Use for adaptive site crawling (intelligently follows links until confident it has enough information), schema-based structured extraction, and JS-heavy/authenticated pages. Complements hybrid-web-search — use that skill first to find the right entry URL, then use this skill to crawl the site deeply.
 version: 0.9.0
-crawl4ai_version: ">=0.9.0"
-last_updated: 2025-01-19
+service_version: "0.9.0"
+last_updated: 2026-09-07
 ---
 
 # Crawl4AI Agentic Skill (v0.9.0)
 
-A production-ready skill for web crawling and data extraction using a hosted Crawl4AI REST service. This skill completely replaces the local Python library dependency, provides ready-to-use scripts for common patterns, and optimized workflows for efficient data extraction.
+A production-ready skill for web crawling and data extraction using a **hosted
+Crawl4AI REST service**. It is **interpreter-free**: the scripts are `bash` +
+`curl` + `jq`. There is no local Python library, no `pip install`, no browser,
+and no Docker container — every crawl is delegated to the hosted service, which
+runs the headless browser and returns markdown/HTML/links/extracted content.
 
 ## Configuration & Environment
 
-This skill interfaces directly with a hosted Crawl4AI REST API instance. It does not run a local Python library, browser, or Docker container.
+Configure the connection via environment variables (all optional — sensible
+defaults are baked in):
 
-Configure connection settings via environment variables:
-- `CRAWL4AI_URL` (or `CRAWL4AI_API_URL`): The URL of the hosted Crawl4AI service. Defaults to `https://crawl4ai.service.internal.novuscotia.com`.
-- `CRAWL4AI_AUTH_TOKEN`: Optional Bearer token for authenticating against the hosted Crawl4AI service.
+- `CRAWL4AI_URL` (or `CRAWL4AI_API_URL`): the hosted service base URL.
+  Default: `https://crawl4ai.service.internal.novuscotia.com`.
+- `CRAWL4AI_AUTH_TOKEN`: Bearer token for the service. Default: `dummy`.
 
+The scripts resolve a short-lived JWT from the raw token via `POST /token` and
+fall back to the raw token if that endpoint is absent.
 
-### Basic First Crawl
-```python
-import asyncio
-from crawl4ai import AsyncWebCrawler
+## Quick Start
 
-async def main():
-    async with AsyncWebCrawler() as crawler:
-        result = await crawler.arun("https://example.com")
-        print(result.markdown[:500])  # First 500 chars
-
-asyncio.run(main())
-```
-
-### Using Provided Scripts
 ```bash
-# Simple markdown extraction
-python scripts/basic_crawler.py https://example.com
+# Liveness check
+bash scripts/c4a.sh >/dev/null && curl -s -H "Authorization: Bearer ${CRAWL4AI_AUTH_TOKEN:-dummy}" "${CRAWL4AI_URL:-https://crawl4ai.service.internal.novuscotia.com}/health"
 
-# Batch processing
-python scripts/batch_crawler.py urls.txt
+# Single-page markdown (fit-filtered by default)
+bash scripts/basic_crawler.sh https://example.com
 
-# Data extraction
-python scripts/extraction_pipeline.py --generate-schema https://shop.com "extract products"
+# Relevance-filtered single page (BM25 against a query)
+bash scripts/basic_crawler.sh https://docs.example.com bm25 "async context managers"
+
+# Concurrent multi-URL crawl (one URL per line)
+bash scripts/batch_crawler.sh urls.txt
+
+# Adaptive crawl — follow the most query-relevant links until coverage plateaus
+bash scripts/adaptive_crawler.sh https://docs.example.com "async context managers" \
+    --max-pages 30 --top-k 3 --output knowledge_base.jsonl
+
+# Structured extraction (schema-based, LLM-free)
+bash scripts/extraction_pipeline.sh --use-schema https://shop.com schema.json
 ```
 
-## Core Crawling Fundamentals
+## REST API (what the scripts call)
 
-### 1. Basic Crawling
+| Method & path | Body | Returns | Use |
+| --- | --- | --- | --- |
+| `GET /health` | — | `{"status":"ok",...}` | liveness |
+| `POST /md` | `{"url", "f": raw\|fit\|bm25\|llm, "q"?}` | `{"markdown": "<string>", "success"}` | single page, content-filtered |
+| `POST /crawl` | `{"urls":[...], "crawler_config":{...}, "browser_config":{...}?}` | `{"success", "results":[{markdown, html, links, media, metadata, extracted_content, ...}]}` | multi-URL crawl; note `results[]` is **not** in input order — match by `.url` |
+| `POST /llm/job` | `{"url", "q", "schema"?, "provider"?}` | job handle (async) | LLM extraction / schema generation; poll `GET /llm/job/<task_id>` |
+| `POST /token` | `{"email", "api_token"}` | `{"access_token"}` | resolve a JWT from the raw token |
 
-Understanding the core components for any crawl:
+`crawler_config` / `browser_config` accept the standard Crawl4AI config params
+(`page_timeout`, `wait_for`, `js_code`, `screenshot`, `session_id`,
+`extraction_strategy`, `markdown_generator`, `headless`, `user_agent`, ...). See
+[references/rest-api.md](references/rest-api.md) for the confirmed endpoint
+shapes and [references/complete-sdk-reference.md](references/complete-sdk-reference.md)
+for the full config-parameter reference.
 
-```python
-from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig
+## Markdown Generation (primary use case)
 
-# Browser configuration (controls browser behavior)
-browser_config = BrowserConfig(
-    headless=True,  # Run without GUI
-    viewport_width=1920,
-    viewport_height=1080,
-    user_agent="custom-agent"  # Optional custom user agent
-)
+`POST /md` takes a `f` (filter) and optional `q` (query):
 
-# Crawler configuration (controls crawl behavior)
-crawler_config = CrawlerRunConfig(
-    page_timeout=30000,  # 30 seconds timeout
-    screenshot=True,  # Take screenshot
-    remove_overlay_elements=True  # Remove popups/overlays
-)
+- `f=raw` — full markdown, no filtering
+- `f=fit` — pruned to high-signal content (default)
+- `f=bm25` / `f=llm` — relevance-filtered against `q`
 
-# Execute crawl with arun()
-async with AsyncWebCrawler(config=browser_config) as crawler:
-    result = await crawler.arun(
-        url="https://example.com",
-        config=crawler_config
-    )
-
-    # CrawlResult contains everything
-    print(f"Success: {result.success}")
-    print(f"HTML length: {len(result.html)}")
-    print(f"Markdown length: {len(result.markdown)}")
-    print(f"Links found: {len(result.links)}")
-```
-
-### 2. Configuration Deep Dive
-
-**BrowserConfig** - Controls the browser instance:
-- `headless`: Run with/without GUI
-- `viewport_width/height`: Browser dimensions
-- `user_agent`: Custom user agent string
-- `cookies`: Pre-set cookies
-- `headers`: Custom HTTP headers
-
-**CrawlerRunConfig** - Controls each crawl:
-- `page_timeout`: Maximum page load/JS execution time (ms)
-- `wait_for`: CSS selector or JS condition to wait for (optional)
-- `cache_mode`: Control caching behavior
-- `js_code`: Execute custom JavaScript
-- `screenshot`: Capture page screenshot
-- `session_id`: Persist session across crawls
-
-### 3. Content Processing
-
-Basic content operations available in every crawl:
-
-```python
-result = await crawler.arun(url)
-
-# Access extracted content
-markdown = result.markdown  # Clean markdown
-html = result.html  # Raw HTML
-text = result.cleaned_html  # Cleaned HTML
-
-# Media and links
-images = result.media["images"]
-videos = result.media["videos"]
-internal_links = result.links["internal"]
-external_links = result.links["external"]
-
-# Metadata
-title = result.metadata["title"]
-description = result.metadata["description"]
-```
-
-## Markdown Generation (Primary Use Case)
-
-### 1. Basic Markdown Extraction
-
-Crawl4AI excels at generating clean, well-formatted markdown:
-
-```python
-# Simple markdown extraction
-async with AsyncWebCrawler() as crawler:
-    result = await crawler.arun("https://docs.example.com")
-
-    # High-quality markdown ready for LLMs
-    with open("documentation.md", "w") as f:
-        f.write(result.markdown)
-```
-
-### 2. Fit Markdown (Content Filtering)
-
-Use content filters to get only relevant content:
-
-```python
-from crawl4ai.content_filter_strategy import PruningContentFilter, BM25ContentFilter
-from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
-
-# Option 1: Pruning filter (removes low-quality content)
-pruning_filter = PruningContentFilter(threshold=0.4, threshold_type="fixed")
-
-# Option 2: BM25 filter (relevance-based filtering)
-bm25_filter = BM25ContentFilter(user_query="machine learning tutorials", bm25_threshold=1.0)
-
-md_generator = DefaultMarkdownGenerator(content_filter=bm25_filter)
-
-config = CrawlerRunConfig(markdown_generator=md_generator)
-
-result = await crawler.arun(url, config=config)
-# Access filtered content
-print(result.markdown.fit_markdown)  # Filtered markdown
-print(result.markdown.raw_markdown)  # Original markdown
-```
-
-### 3. Markdown Customization
-
-Control markdown generation with options:
-
-```python
-config = CrawlerRunConfig(
-    # Exclude elements from markdown
-    excluded_tags=["nav", "footer", "aside"],
-
-    # Focus on specific CSS selector
-    css_selector=".main-content",
-
-    # Clean up formatting
-    remove_forms=True,
-    remove_overlay_elements=True,
-
-    # Control link handling
-    exclude_external_links=True,
-    exclude_internal_links=False
-)
-
-# Custom markdown generation
-from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
-
-generator = DefaultMarkdownGenerator(
-    options={
-        "ignore_links": False,
-        "ignore_images": False,
-        "image_alt_text": True
-    }
-)
+```bash
+bash scripts/basic_crawler.sh https://docs.example.com bm25 "machine learning tutorials"
 ```
 
 ## Data Extraction
 
-### 1. Schema-Based Extraction (Most Efficient)
-
-For repetitive patterns, generate schema once and reuse:
+Schema-based structured extraction — generate a CSS schema once, then reuse it
+indefinitely without LLM calls:
 
 ```bash
-# Step 1: Generate schema with LLM (one-time)
-python scripts/extraction_pipeline.py --generate-schema https://shop.com "extract products"
+# Step 1: generate a schema (one-time LLM job)
+bash scripts/extraction_pipeline.sh --generate-schema https://shop.com "extract products"
 
-# Step 2: Use schema for fast extraction (no LLM)
-python scripts/extraction_pipeline.py --use-schema https://shop.com generated_schema.json
+# Step 2: fast extraction using the schema (no LLM)
+bash scripts/extraction_pipeline.sh --use-schema https://shop.com generated_schema.json
 ```
 
-### 2. Manual CSS/JSON Extraction
+`schema.json` is a `JsonCssExtractionStrategy` schema:
 
-When you know the structure:
-
-```python
-schema = {
-    "name": "articles",
-    "baseSelector": "article.post",
-    "fields": [
-        {"name": "title", "selector": "h2", "type": "text"},
-        {"name": "date", "selector": ".date", "type": "text"},
-        {"name": "content", "selector": ".content", "type": "text"}
-    ]
+```json
+{
+  "name": "articles",
+  "baseSelector": "article.post",
+  "fields": [
+    {"name": "title", "selector": "h2", "type": "text"},
+    {"name": "date", "selector": ".date", "type": "text"}
+  ]
 }
-
-extraction_strategy = JsonCssExtractionStrategy(schema=schema)
-config = CrawlerRunConfig(extraction_strategy=extraction_strategy)
-```
-
-### 3. LLM-Based Extraction
-
-For complex or irregular content:
-
-```python
-extraction_strategy = LLMExtractionStrategy(
-    provider="openai/gpt-4o-mini",
-    instruction="Extract key financial metrics and quarterly trends"
-)
 ```
 
 ## Advanced Patterns & Troubleshooting
 
-For advanced crawling configurations, session management, dynamic content, proxy configurations, and troubleshooting, please see [the Advanced Patterns & Troubleshooting Guide](references/advanced-patterns.md).
+For advanced crawling configurations, session management, dynamic content, proxy
+configurations, and troubleshooting, see
+[references/advanced-patterns.md](references/advanced-patterns.md).
 
 ## Resources
 
-### scripts/
-- **crawl_service.py** - Production-ready REST API client helper for Crawl4AI.
-- **adaptive_crawler.py** - Adaptive crawling with intelligent stopping (start URL + query → comprehensive coverage)
-- **extraction_pipeline.py** - Three extraction approaches with schema generation
-- **basic_crawler.py** - Simple markdown extraction with screenshots
-- **batch_crawler.py** - Multi-URL concurrent processing
+### scripts/ (bash + curl + jq — no interpreter required)
+- **c4a.sh** — shared helpers: base URL/token, JWT resolution, `c4a_md` / `c4a_crawl` / `c4a_health`
+- **basic_crawler.sh** — single-URL markdown extraction (`POST /md`)
+- **batch_crawler.sh** — concurrent multi-URL processing (`POST /crawl`)
+- **adaptive_crawler.sh** — adaptive crawling with relevance-ranked link following and automatic stopping
+- **extraction_pipeline.sh** — schema-based + LLM extraction (`POST /crawl`, `POST /llm/job`)
 
 ### references/
-- [complete-sdk-reference.md](references/complete-sdk-reference.md) - Complete SDK documentation
-- [advanced-patterns.md](references/advanced-patterns.md) - Advanced use cases, troubleshooting, and dynamic content handling
+- [rest-api.md](references/rest-api.md) — confirmed hosted REST endpoint shapes
+- [complete-sdk-reference.md](references/complete-sdk-reference.md) — full config-parameter reference (maps to `crawler_config` / `browser_config` JSON)
+- [advanced-patterns.md](references/advanced-patterns.md) — advanced use cases, troubleshooting, dynamic content
 
 ## Skill Routing: hybrid-web-search ↔ crawl4ai
 
@@ -267,11 +135,10 @@ For advanced crawling configurations, session management, dynamic content, proxy
 1. `hybrid-web-search` identifies the canonical entry URL (e.g., the docs landing page for a library)
 2. Hand that URL to adaptive crawling here for deep, comprehensive coverage:
    ```bash
-   python scripts/adaptive_crawler.py <url_from_search> "<query>" --output kb.jsonl
+   bash scripts/adaptive_crawler.sh <url_from_search> "<query>" --output kb.jsonl
    ```
 
-**Confidence score guide** (for `--confidence` arg):
-- `0.5` — basic coverage, fast; good for broad overviews
-- `0.7` — default; good for most research tasks
-- `0.85+` — comprehensive; use for knowledge base creation or exhaustive research
-
+**Stopping controls** (adaptive_crawler.sh):
+- `--max-pages N` — hard cap on pages crawled (default 15)
+- `--top-k K` — links followed per round (default 3)
+- `--min-score S` — stop when the best candidate's keyword-overlap score drops below S (default 1)

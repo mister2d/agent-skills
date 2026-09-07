@@ -4,6 +4,14 @@
 **Format:** Ultra-Dense Reference (Optimized for AI Assistants)
 **Crawl4AI Version:** 0.7.4
 
+> **How to use this in the interpreter-free skill:** this is the
+> **config-parameter reference**. The parameter names and values here map
+> directly onto the `crawler_config` and `browser_config` JSON objects the
+> hosted REST service accepts (see `rest-api.md`). The Python import examples
+> are illustrative only — the skill itself makes no `import crawl4ai` calls and
+> needs no Python interpreter. For the confirmed REST endpoint shapes, see
+> `rest-api.md`.
+
 ---
 
 ## Navigation
