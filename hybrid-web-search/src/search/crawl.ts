@@ -19,7 +19,7 @@ async function resolveAuthToken(timeoutMs: number): Promise<string> {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${CRAWL4AI_TOKEN}`,
       },
-      body: JSON.stringify({ email: 'agent@novuscotia.com', api_token: CRAWL4AI_TOKEN }),
+      body: JSON.stringify({ email: 'agent@example.com', api_token: CRAWL4AI_TOKEN }),
       signal: controller.signal,
     });
     clearTimeout(timeout);

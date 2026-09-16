@@ -74,7 +74,7 @@ Request (`LlmJobPayload`):
 Returns a job handle (async). Poll `GET /llm/job/<task_id>` for the result.
 
 ### `POST /token` — resolve a JWT
-Request (`TokenRequest`): `{ "email": "agent@novuscotia.com", "api_token": "<raw>" }`
+Request (`TokenRequest`): `{ "email": "agent@example.com", "api_token": "<raw>" }`
 → `{ "access_token": "…" }`
 
 ## Config shapes (validated against the official docs, v0.9.x)

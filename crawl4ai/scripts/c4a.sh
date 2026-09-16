@@ -24,7 +24,7 @@ c4a_auth() {
     resp=$(curl -s -m 10 -X POST "$C4A_URL/token" \
       -H "Content-Type: application/json" \
       -H "Authorization: Bearer $C4A_TOKEN" \
-      -d "{\"email\":\"agent@novuscotia.com\",\"api_token\":\"$C4A_TOKEN\"}" 2>/dev/null || true)
+      -d "{\"email\":\"agent@example.com\",\"api_token\":\"$C4A_TOKEN\"}" 2>/dev/null || true)
     jwt=$(printf '%s' "$resp" | jq -r '.access_token // empty' 2>/dev/null || true)
     [ -n "$jwt" ] && tok="$jwt"
   fi
