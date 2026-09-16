@@ -3,7 +3,7 @@ name: crawl4ai
 description: Deep web crawling toolkit for known URLs or domains. Use for adaptive site crawling (intelligently follows links until confident it has enough information), schema-based structured extraction, and JS-heavy/authenticated pages. Complements hybrid-web-search — use that skill first to find the right entry URL, then use this skill to crawl the site deeply.
 version: 0.9.0
 service_version: "0.9.0"
-last_updated: 2026-09-16
+last_updated: 2026-09-17
 ---
 
 # Crawl4AI Agentic Skill (v0.9.0)
