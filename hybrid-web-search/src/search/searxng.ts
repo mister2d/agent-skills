@@ -1,6 +1,6 @@
 import type { SearxngResult } from './types.js';
 
-const SEARXNG_BASE = 'https://searxng.service.internal.novuscotia.com';
+const SEARXNG_BASE = process.env.SEARXNG_URL ?? 'https://searxng.service.internal.novuscotia.com';
 
 export async function fetchSearxngResults(
   query: string,

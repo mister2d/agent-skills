@@ -8,18 +8,25 @@ description: Fast multi-source web research pipeline (SearXNG → BM25 ranking �
 ## Overview
 TypeScript pipeline combining SearXNG (search), Crawl4AI (extraction), and Orama v3 (BM25 ranking) into a context-budget-aware search tool. Output is always bounded — never returns full pages.
 
-## Location
-`~/.hermes/skills/hybrid-web-search/`
-
 ## Run
+Run from this skill's directory (wherever this `SKILL.md` lives in your agent's
+skills directory — the skill is not tied to any particular harness):
 ```bash
-cd ~/.hermes/skills/hybrid-web-search
+cd <path/to/this/skill/directory>
 npx tsx run.mjs "<your search query>"
 ```
+Requires Node 18+ (native `fetch`). Dependencies install with `npm install`.
+
+## Configuration (environment variables)
+All optional — the defaults below are baked in:
+
+- `SEARXNG_URL` — SearXNG service base URL. Default: `https://searxng.service.internal.novuscotia.com`
+- `CRAWL4AI_URL` (or `CRAWL4AI_API_URL`) — Crawl4AI service base URL. Default: `https://crawl4ai.service.internal.novuscotia.com`
+- `CRAWL4AI_AUTH_TOKEN` — Bearer token for Crawl4AI. Default: `dummy`
 
 ## Service Endpoints
-- **SearXNG**: `https://searxng.service.internal.novuscotia.com`
-- **Crawl4AI**: `https://crawl4ai.service.internal.novuscotia.com/crawl`
+- **SearXNG**: `${SEARXNG_URL:-https://searxng.service.internal.novuscotia.com}`
+- **Crawl4AI**: `${CRAWL4AI_URL:-https://crawl4ai.service.internal.novuscotia.com}/crawl`
 
 ## Architecture
 1. **SearXNG** fetches results from Google/Bing/DuckDuckGo

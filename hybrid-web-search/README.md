@@ -25,8 +25,8 @@ Two internal services must be reachable:
 
 | Service | Default endpoint |
 |---|---|
-| SearXNG | `https://searxng.service.internal.novuscotia.com` |
-| Crawl4AI | `https://crawl4ai.service.internal.novuscotia.com/crawl` |
+| SearXNG | `https://searxng.service.internal.novuscotia.com` (override: `SEARXNG_URL`) |
+| Crawl4AI | `https://crawl4ai.service.internal.novuscotia.com/crawl` (override: `CRAWL4AI_URL` / `CRAWL4AI_API_URL`; auth: `CRAWL4AI_AUTH_TOKEN`) |
 
 Node.js and `tsx` are the only runtime dependencies (`npm install`).
 
