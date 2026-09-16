@@ -87,7 +87,7 @@ curl -X PUT \
   -H "Content-Type: application/pdf" \
   -H "Accept: text/plain" \
   --data-binary @document.pdf \
-  http://tika.service.internal:9998/tika
+  ${TIKA_BASE_URL:-https://tika.service.internal.novuscotia.com}/tika
 ```
 
 ---
@@ -174,7 +174,7 @@ curl -X PUT \
   -H "Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document" \
   -H "Accept: */*" \
   --data-binary @report.docx \
-  http://tika.service.internal:9998/unpack/all \
+  ${TIKA_BASE_URL:-https://tika.service.internal.novuscotia.com}/unpack/all \
   --output assets.tar
 ```
 

@@ -17,13 +17,13 @@ description: >
 
 ## Configuration
 
-The Tika server base URL must be set before any API call. Check these sources in order:
+The Tika server base URL is resolved in order:
 
 1. An environment variable `TIKA_BASE_URL` if set
 2. A tool config or agent context that specifies the Tika endpoint
-3. Fall back to asking the agent's operator; **never silently assume `localhost`**
+3. Default: `https://tika.service.internal.novuscotia.com` (the self-hosted instance)
 
-All endpoints below are relative to this base URL (e.g. `http://tika.service.internal:9998`).
+All endpoints below are relative to this base URL.
 
 > For detailed endpoint reference and header options, read `references/endpoints.md`.
 > For MIME-type-based routing heuristics, read `references/routing-guide.md`.
