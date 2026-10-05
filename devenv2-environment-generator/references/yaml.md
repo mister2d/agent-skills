@@ -55,7 +55,7 @@ secretspec:
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `backend` | `nix` | `nix` | Nix backend used to evaluate `devenv.nix`. yaml-only — there is no `--backend` CLI flag in 2.2.1. |
+| `backend` | `nix` | `nix` | Nix backend used to evaluate `devenv.nix`. yaml-only — there is no `--backend` CLI flag in devenv 2.x today. |
 | `imports` | list of string | `[]` | Relative paths, `/`-rooted paths, or input names to import. See `composing.md`. |
 | `impure` | boolean | `false` | Relax hermeticity. CLI: `-i/--impure`, `--no-impure`. |
 | `inputs` | attrset of input | `nixpkgs.url: github:cachix/devenv-nixpkgs/rolling` | Nix inputs (see below). |

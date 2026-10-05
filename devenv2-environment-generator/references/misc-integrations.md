@@ -41,7 +41,13 @@ The resolved token is used for pull and push without being exported into the she
 entries (direnv) cannot prompt, so run `devenv shell` once first. See `secrets.md` for the SecretSpec
 model.
 
-https://devenv.sh/binary-caching/
+Since 2.3.1, a cache listed in both the implicit defaults and your own `cachix.pull` is deduplicated
+instead of being registered twice (previously Nix warned that the substituter was already present).
+Since 2.3.1, `cachix.pull` also refetches and caches each cache's trusted signing keys from the
+Cachix API using the resolved auth token, so a private cache's keys no longer have to already be
+cached locally for Nix to verify paths from it.
+
+https://devenv.sh/binary-caching/ · https://github.com/cachix/devenv/releases/tag/v2.3.1
 
 ## Overlays
 
@@ -196,19 +202,8 @@ https://devenv.sh/reference/options/#aws-vaultenable
 ## Machines
 
 `machines.<name>` declares NixOS, nix-darwin, or home-manager configurations alongside the dev
-environment, so one repo describes both the shell and the hosts it deploys to.
-
-```nix
-{
-  machines.builder = {
-    system = "x86_64-linux";             # defaults to pkgs.stdenv.system
-    nixos = { services.openssh.enable = true; };
-    # nix-darwin = { ... };  home-manager = { home.username = "jdoe"; };
-  };
-}
-```
-
-https://devenv.sh/reference/options/#machines
+environment, so one repo describes both the shell and the hosts it deploys to. See `machines.md`
+for the full namespace.
 
 ## Changelogs
 

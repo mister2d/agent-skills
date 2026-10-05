@@ -1,8 +1,9 @@
 # devenv2-environment-generator
 
 A coding agent skill for generating complete, production-quality **devenv 2.x**
-development environments from structured project requirements. Current target:
-**devenv 2.2.1**.
+development environments from structured project requirements. The exact pinned
+target lives in `SKILL.md`'s frontmatter (`metadata.devenv-target`) — that is the
+single place this repository asserts a version.
 
 ## What this skill does
 
@@ -27,7 +28,7 @@ bash/zsh/fish/nushell support, and background-manager attach.
 
 ```
 SKILL.md            # the skill the agent loads; intake, routing table, skeleton, checklist
-references/         # 14 on-demand reference files, routed from the intake fields
+references/         # 15 on-demand reference files, routed from the intake fields
 examples/           # 6 complete, self-consistent example projects
 .claude/            # maintenance agents and the /bump-devenv skill (see Maintenance)
 ```
@@ -54,7 +55,7 @@ Each example ships a `devenv.nix`, a `.gitignore`, and — where it needs them �
 
 ---
 
-## What changed in the 2.2 line
+## What changed since 2.2
 
 - **Attach to background processes.** `devenv up -d` starts a manager in the
   background; a later `devenv up` attaches to it rather than starting a second one,
@@ -71,6 +72,10 @@ Each example ships a `devenv.nix`, a `.gitignore`, and — where it needs them �
   `nixpkgs.allow_unfree`, `clean.enabled`; camelCase remains legacy-compatible only.
 - **2.2.1:** profiles can override package-valued options without `lib.mkForce`, and
   `devenv --profile <name> allow` persists profiles for in-tree projects.
+- **2.2.1 → current: no breaking changes.** The notable addition is the new
+  `machines.*` surface — declare NixOS, nix-darwin, or home-manager machine configs
+  in `devenv.nix` and build/install/deploy them with `devenv machines <subcommand>`;
+  see `references/machines.md`.
 
 Other things the skill handles that predate 2.2: dynamic port allocation so parallel
 agent instances never clash, SecretSpec instead of `.env`, declarative readiness
@@ -129,5 +134,6 @@ more than one place; change `metadata.devenv-target` and let the bump propagate.
 - Auto-activation: https://devenv.sh/auto-activation/
 - Processes: https://devenv.sh/processes/
 - Profiles: https://devenv.sh/profiles/
+- Machines: https://devenv.sh/machines/
 - SecretSpec: https://devenv.sh/integrations/secretspec/ · https://secretspec.dev
 - devenv MCP server / AI generator: https://devenv.sh/mcp/ · https://devenv.new

@@ -100,7 +100,7 @@ All matching tiers activate together. Running `devenv --profile backend shell` o
 as user `developer` merges base + `profiles.backend` + `profiles.hostname."ci-server"` +
 `profiles.user."developer"`.
 
-### Package-valued options (devenv 2.2.1)
+### Package-valued options
 
 Before 2.2.1 a profile could not override an option whose value is a derivation — for example
 `languages.python.package` — without `lib.mkForce`. Automatic profile priorities now apply to

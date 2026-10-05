@@ -2,8 +2,9 @@
 
 SecretSpec separates *declaring* which secrets a project needs from *provisioning*
 them. Declarations live in a committed `secretspec.toml`; values come from each
-developer's, CI's, or production's own provider. devenv 2.2.1 bundles the
-`secretspec` CLI (version 0.17.1) — no separate install.
+developer's, CI's, or production's own provider. devenv bundles the `secretspec`
+CLI — no separate install needed, and the bundled CLI's own version advances on
+its own release cadence, independent of devenv's.
 
 ## The never-in-env rule
 
@@ -159,7 +160,7 @@ WG_KEY      = { description = "WireGuard key",    type = "command",  generate = 
 
 ## Providers
 
-Provider ids available in the 0.17.x line that devenv 2.2.1 bundles:
+Provider ids available in the secretspec CLI line that devenv bundles today:
 
 | Id | Backend |
 |---|---|
@@ -195,3 +196,6 @@ default provider, `secretspec check` to verify everything resolves, and
 `secretspec run --reason "<why>" -- <cmd>` when `require_reason` is in force.
 
 https://secretspec.dev
+
+Machine installs provision secrets through this same SecretSpec integration at a
+different lifecycle point; see `machines.md` for the install-time option tree.

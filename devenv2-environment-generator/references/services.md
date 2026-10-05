@@ -3,7 +3,7 @@
 `services.*` modules for the datastores and infrastructure this skill wires up most often, how
 each one turns into a managed process, and the canonical way to read a service's allocated port
 back into your application config. Option paths were confirmed against
-https://devenv.sh/reference/options/ for devenv 2.2.1.
+https://devenv.sh/reference/options/.
 
 ## PostgreSQL
 
@@ -156,7 +156,7 @@ services.caddy = { enable = true; virtualHosts."localhost".extraConfig = "respon
 
 ## All supported services
 
-devenv 2.2.1 documents **42** services:
+devenv 2.x documents **42** services:
 
 adminer, blackfire, caddy, cassandra, clickhouse, cockroachdb, couchdb, dynamodb-local,
 elasticmq, elasticsearch, garage, httpbin, influxdb, kafka, keycloak, mailhog, mailpit,

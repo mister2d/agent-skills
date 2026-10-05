@@ -6,7 +6,7 @@ compatibility: Requires devenv 2.2+ (https://devenv.sh). Nix must be installed o
 metadata:
   author: devenv2-environment-generator
   version: "2.2.1"
-  devenv-target: "2.2.1"
+  devenv-target: "2.4.0"
 allowed-tools: Bash(cat:*), Bash(ls:*), Read, Write
 ---
 
@@ -60,6 +60,7 @@ routed ones are relevant to a given request.
 | Claude Code integration, AI agent behavior, MCP servers | `references/ai-integration.md` |
 | Container images, buildable `outputs`, `enterTest` / `devenv test` | `references/outputs-containers-testing.md` |
 | CLI invocation, activation, debugging a broken environment | `references/cli.md` |
+| Deploying NixOS/nix-darwin/home-manager machines from a devenv project, SSH-based install | `references/machines.md` |
 | Cachix binary caches, overlays, macOS/Apple SDK, Android, AWS | `references/misc-integrations.md` |
 
 ---
@@ -141,10 +142,11 @@ Do not hand-write one unless the user asks for direnv.
 | `watch` is a submodule | 2.0 | Use `watch.paths` / `watch.extensions` / `watch.ignore`, not a plain list |
 | `devenv tasks run` default mode changed | 2.1 | Dependency tasks now run by default; `--mode single` for old behavior |
 | `devenv` without a command shows help | 2.1 | Use `devenv version` or `devenv --version` |
-| `devenv.yaml` keys documented as snake_case | 2.1.1 | Write `strict_ports`, `allow_unfree`, `clean.enabled`; camelCase is legacy-only |
+| `devenv.yaml` keys documented as snake_case | 2.1.1 | Write `strict_ports`, `nixpkgs.allow_unfree`, `clean.enabled`; camelCase is legacy-only. Top-level `allow_unfree` / `allow_unsupported_system` / `allow_broken` / `permitted_insecure_packages` are deprecated flat aliases — nest them under `nixpkgs.*` |
 | Auto-activation keys on `devenv.nix`, not `devenv.yaml` | 2.2 | Always emit a `devenv.nix`, even for yaml-driven projects |
 | `devenv init` no longer writes `.envrc` | 2.2 | Pass `--include-envrc` or set `DEVENV_INCLUDE_ENVRC` if direnv is wanted |
 | `x86_64-darwin` dropped | 2.2 | Intel Macs must pin an older CLI; Apple Silicon can run it under Rosetta 2 |
+| No breaking changes | 2.2.1 → 2.4.0 | None — upgrade is a direct swap; see `references/machines.md` for the new `machines.*` surface |
 
 Migration guide: https://devenv.sh/guides/migrating-to-2.0/
 2.2 release notes: https://devenv.sh/blog/2026/07/28/devenv-22-attach-to-running-processes-and-persistent-out-of-tree-environments/
@@ -167,7 +169,7 @@ Run before finalizing output:
 - [ ] Language versions are pinned where reproducibility matters
 - [ ] `devenv.yaml` present if inputs, imports, secretspec config, `shell`, nixpkgs config, or `require_version` are needed
 - [ ] `.gitignore` includes `.devenv/` and `.direnv/`
-- [ ] `languages.<lang>.lsp.enable` is only touched to opt **out** — it defaults to `true`
+- [ ] `languages.<lang>.lsp.enable` defaults to `true`; write `= true` only to record intent explicitly, write `= false` to opt out — never write `= true` just to restate the default
 - [ ] `restart` uses submodule syntax: `restart.on`, not a plain string
 - [ ] `watch` uses submodule syntax: `watch.paths`, not a plain list
 - [ ] Tasks that should run before shell entry use `before = [ "devenv:enterShell" ]`

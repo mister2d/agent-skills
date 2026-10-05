@@ -1,14 +1,15 @@
 # CLI Reference
 
-The complete `devenv` command surface as of devenv 2.2.1, plus the environment variables devenv sets
-and reads, and how shell auto-activation is wired up. Every command, flag and default below was taken
-from `devenv --help` / `devenv <command> --help` of the installed 2.2.1 binary. There is no CLI
-reference page on devenv.sh — the binary's own help is the source of truth.
+The complete `devenv` command surface, plus the environment variables devenv sets and reads, and how
+shell auto-activation is wired up. Every command, flag and default below was taken from `devenv --help`
+/ `devenv <command> --help` of the installed binary. There is no CLI reference page on devenv.sh — the
+binary's own help is the source of truth.
 
 ## Command tree
 
 | Command | Arguments | Purpose |
 | --- | --- | --- |
+| `user-config` | `path` \| `validate` \| `show` \| `schema` | Inspect and validate devenv's own user configuration file |
 | `init` | `[TARGET]` | Scaffold `devenv.yaml`, `devenv.nix`, and `.gitignore` |
 | `generate` | — | Generate `devenv.yaml` and `devenv.nix` using AI |
 | `shell` | `[CMD] [ARGS]...` | Activate the environment; with `CMD`, run it inside and exit |
@@ -22,6 +23,7 @@ reference page on devenv.sh — the binary's own help is the source of truth.
 | `test` | — | Run `enterTest` plus services/processes |
 | `container` | `build` \| `copy` \| `run` | Container image workflows |
 | `inputs` | `add` | Add an input to `devenv.yaml` |
+| `machines` | `check` \| `plan` \| `apply` \| `status` \| `rollback` \| `info` \| `install` \| `deploy` | Build, install, and deploy NixOS/nix-darwin/home-manager machines — see `machines.md` for the full subtree and options |
 | `changelogs` | — | Show relevant changelogs |
 | `repl` | — | Interactive Nix repl over the devenv configuration |
 | `gc` | — | Delete previous shell generations |
@@ -31,7 +33,7 @@ reference page on devenv.sh — the binary's own help is the source of truth.
 | `version` | — | Print the devenv version |
 | `mcp` | — | Launch the Model Context Protocol server |
 | `lsp` | — | Start the nixd language server for `devenv.nix` |
-| `hook` | `<SHELL>` | Print the shell hook for auto-activation |
+| `hook` | `<SHELL> [-- <SHELL_ARGS>...]` | Print the shell hook for auto-activation |
 | `allow` | — | Allow auto-activation for the current directory |
 | `revoke` | — | Revoke auto-activation for the current directory |
 
@@ -47,6 +49,19 @@ devenv init --include-envrc    # also write .envrc
 
 Since 2.2 `devenv init` no longer writes `.envrc`. Pass `--include-envrc`, or set
 `DEVENV_INCLUDE_ENVRC`, when you use direnv.
+
+### User configuration
+
+```bash
+devenv user-config path       # print the resolved config file path
+devenv user-config show       # print the resolved config as YAML
+devenv user-config validate   # check the config file against its schema
+devenv user-config schema     # print the JSON Schema for the config file
+```
+
+This is devenv's own per-user settings file (location via `--user-config`, env `DEVENV_USER_CONFIG`),
+not a project's `devenv.yaml`/`devenv.nix`. None of the four subcommands take extra flags beyond the
+global ones.
 
 ### Processes
 
@@ -99,9 +114,13 @@ devenv tasks list --json                     # machine-readable (2.2+)
 
 ```bash
 devenv container build <name>
-devenv container copy <name> --registry docker://ghcr.io/<name>/ [--copy-args ...]
+devenv container copy <name> -r docker://ghcr.io/<name>/ [--copy-args ...]
 devenv container run <name> [--copy-args ...]
 ```
+
+`-r, --registry` is only on `copy`; `--copy-args` is on both `copy` and `run`. `build` takes no flags
+beyond the global ones. The installed binary's help shows this subcommand-based shape; no prior
+flat-flag form was found to confirm or refute.
 
 ### Inputs, building, inspection
 
@@ -228,6 +247,13 @@ always ship `devenv.nix`.
 eval "$(devenv hook bash)"     # ~/.bashrc
 eval "$(devenv hook zsh)"      # ~/.zshrc
 devenv hook fish | source      # ~/.config/fish/config.fish, only if the vendor snippet is absent
+```
+
+Since 2.3, arguments after `--` forward to the `devenv shell` the hook spawns, in bash, zsh, fish, and
+nu alike:
+
+```bash
+devenv hook fish -- --no-tui | source
 ```
 
 Bash and zsh always need that manual line. A devenv installed via Nix ships

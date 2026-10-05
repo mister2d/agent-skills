@@ -36,8 +36,8 @@ between the module system and packaging: anything you can build in Nix can be su
 | `languages.rust.import` | function → function → package | — | `config.languages.rust.import ./dir { }`, backed by crate2nix |
 | `languages.python.import` | function → function → package | — | `config.languages.python.import ./dir { }`, backed by uv2nix |
 
-Only `rust` and `python` expose an `import` function in devenv 2.2.1 — no other language module
-defines one. For every other language, build the derivation yourself (`pkgs.buildGoModule`,
+Only `rust` and `python` expose an `import` function — no other language module defines one. For
+every other language, build the derivation yourself (`pkgs.buildGoModule`,
 `pkgs.callPackage ./nix/app.nix { }`, …) and assign it to an `outputs` attribute.
 
 The path passed to `import` is a store-path dependency of the eval cache since 2.2, so edits inside
@@ -137,7 +137,8 @@ devenv container copy <name> --registry docker://registry.fly.io/ \
 
 `--registry` / `-r` and `--copy-args` are flags of the `copy` subcommand and must come after it
 (`run` also accepts `--copy-args`). The containers doc page still shows the pre-2.0 ordering
-`devenv container --registry … copy <name>`; that form is rejected by devenv 2.2.1 with
+`devenv container --registry … copy <name>`; `--registry` and `--copy-args` are defined only on the
+`copy` variant, not on `container` itself, so that ordering errors with
 `error: unexpected argument '--registry' found`.
 
 ### Slim images

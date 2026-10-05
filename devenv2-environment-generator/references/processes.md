@@ -19,6 +19,10 @@ processes.api = {
 
 `ports.<port-name>.value` is read-only and resolved at evaluation time — read it with
 `config.processes.<name>.ports.<port-name>.value`, never by shelling out to `devenv eval`.
+Since 2.4, that read tracks a running native manager: `devenv shell`/direnv re-resolve it from
+the manager's live allocation on each hot reload instead of a fresh base-port search, so it
+stays correct while the manager is up. There is no separate per-port env var devenv sets for
+you — wire one yourself via `processes.<name>.env` if a tool needs it directly.
 
 Use `devenv up --strict-ports` to fail instead of searching for an available port
 (`--no-strict-ports` to override). The default lives in `devenv.yaml`:
@@ -26,6 +30,31 @@ Use `devenv up --strict-ports` to fail instead of searching for an available por
 ```yaml
 strict_ports: true
 ```
+
+## Friendly localhost URLs (portless proxy)
+
+Since 2.3, `process.proxy.enable` serves every process behind a `.localhost` hostname
+instead of a raw port — handy alongside `ports.<port-name>.allocate` so agents and
+teammates share one stable URL even when the actual port varies per run.
+
+```nix
+process.proxy.enable = true;        # http://<process>.<project>.localhost
+
+processes.web = {
+  exec = "npm start";
+  ports.http.allocate = 3000;
+  proxy.hostname = "app.localhost"; # override the derived hostname
+  proxy.https.enable = true;        # also serve https:// via the project's mkcert CA
+};
+```
+
+A named port gets its own prefixed route (here, `http://http.app.localhost`) unless
+`processes.<name>.ports.<port-name>.proxy.hostname` overrides it; a port-level override wins
+over the process-level `proxy.hostname`. HTTPS serves on 443 (HTTP stays on 80) and forwards
+`X-Forwarded-Proto: https` to the process; see `certificates` in `scripts-and-files.md` for
+the mkcert CA this reuses.
+
+https://devenv.sh/processes/#friendly-localhost-urls
 
 ## Dependency ordering
 
@@ -56,8 +85,7 @@ Processes and tasks can be freely mixed in dependency chains. See `tasks.md`.
 ready.http.get = {
   port = config.processes.api.ports.http.value;
   path = "/healthz";
-  # host = "127.0.0.1";   # default
-  # scheme = "http";       # default
+  # host = "127.0.0.1"; scheme = "http";   # both default
 };
 
 # Exec probe — exit 0 means ready
@@ -146,16 +174,11 @@ A process with `start.enable = false` still starts when named explicitly:
 ```nix
 processes.migrate = {
   exec = "alembic upgrade head";
-  # A clean exit is never restarted. The default restart.on = "on_failure" still applies,
-  # so a failing one-shot retries up to restart.max; set restart.on = "never" to opt out.
+  # A clean exit is never restarted; restart.on = "on_failure" (default) still retries a
+  # failing one-shot up to restart.max — set restart.on = "never" to opt out.
 };
 
-processes.api = {
-  after = [
-    "devenv:processes:postgres"
-    "devenv:processes:migrate@completed"
-  ];
-};
+processes.api.after = [ "devenv:processes:postgres" "devenv:processes:migrate@completed" ];
 ```
 
 ## Socket activation
@@ -163,23 +186,11 @@ processes.api = {
 ```nix
 processes.api = {
   exec = "./api-server";
-  listen = [{
-    name = "http";
-    kind = "tcp";            # or "unix_stream"
-    address = "127.0.0.1:8080";
-    # backlog = 128;         # default
-  }];
+  listen = [
+    { name = "http"; kind = "tcp"; address = "127.0.0.1:8080"; }               # backlog defaults to 128
+    { name = "admin"; kind = "unix_stream"; path = "$DEVENV_STATE/admin.sock"; } # mode = null by default — pass e.g. 384 (0o600) to set unix_stream permissions explicitly
+  ];
 };
-```
-
-For Unix sockets:
-```nix
-listen = [{
-  name = "admin";
-  kind = "unix_stream";
-  path = "$DEVENV_STATE/admin.sock";
-  # mode = 384;             # octal 0o600
-}];
 ```
 
 The process receives `LISTEN_FDS`, `LISTEN_PID` and `LISTEN_FDNAMES`; descriptors start at 3
@@ -214,29 +225,27 @@ devenv processes attach # attach without starting anything (native manager only)
 devenv down             # shorthand for `devenv processes down`
 ```
 
-A second `devenv up` no longer fails when a manager is already running: it attaches, starts
-any enabled-but-not-running processes honoring `after`/`before`, and streams a live view.
-Ctrl-C prompts to detach (leaving processes running) rather than stopping them. The attached
-session is non-interactive — stdin is not wired to the processes, though the TUI
-restart/stop keybindings still work. It exits nonzero when nothing could be started.
+A second `devenv up` no longer fails when a manager is already running: it attaches, starts any
+enabled-but-not-running processes honoring `after`/`before`, and streams a live view. Ctrl-C
+prompts to detach (leaving processes running) rather than stopping them. The attached session is
+non-interactive — stdin is not wired to the processes, though the TUI restart/stop keybindings
+still work. It exits nonzero when nothing could be started.
 
 `devenv up <name>` and `devenv processes start <name>` share one dependency-aware launch path:
 
-- Named processes start even when `start.enable = false`; a bare `devenv up` starts only
+- Named processes start even when `start.enable = false`; a bare `devenv up` only starts
   processes with `start.enable = true`.
 - If a dependency is not running, the named process waits for it instead of starting without it.
 - If no manager is running, `devenv processes start <name>` cold-boots one in the background
   running just that process — equivalent to `devenv up -d <name>`.
 
-Attach schedules into the configuration the running manager was started with. Edits to
-`devenv.nix` are not picked up, and names outside the running process set are rejected.
-Restart to pick up changes: `devenv processes down && devenv up -d`.
+Attach schedules into the configuration the running manager was started with: edits to
+`devenv.nix` are not picked up, and names outside the running process set are rejected. Restart
+to pick up changes: `devenv processes down && devenv up -d`. Under AI agents and non-TTY/piped
+output devenv never blocks on attach — it reports what is already running and returns.
 
-Under AI agents and non-TTY/piped output devenv never blocks on attach — it reports what is
-already running and returns.
-
-`devenv up` schedules processes in `before` mode, which runs each process's upstream
-dependencies but not tasks downstream of it. A setup task wired with
+`devenv up` schedules processes in `before` mode, which runs each process's upstream dependencies
+but not tasks downstream of it. A setup task wired with
 `processes.<name>.before = [ "<namespace>:configure" ]` is therefore skipped; run
 `devenv up --mode all` to include it. `devenv test` already runs in `all` mode.
 
@@ -275,17 +284,16 @@ Translate `processes.<name>.process-compose` attributes to native equivalents.
 | `readiness_probe.period_seconds` | `ready.period` |
 | `liveness_probe` | `ready.notify = true` + `watchdog.{usec,require_ready}` |
 | `is_elevated = true` | `linux.capabilities = [ ... ]` |
-| `shutdown.signal` | trap the signal inside `exec` and forward it yourself |
+| `shutdown.signal` | `shutdown.signal` + `shutdown.grace` (native graceful shutdown; see below) |
 
-Forwarding a non-SIGTERM shutdown signal:
+Native graceful shutdown (since 2.3) — also applies on file-watch restarts and watchdog kills:
 
 ```nix
-processes.postgres.exec = ''
-  trap 'kill -INT "$PID"' TERM
-  postgres -D "$PGDATA" &
-  PID=$!
-  wait "$PID"
-'';
+processes.postgres = {
+  exec = "postgres -D $PGDATA";
+  shutdown.signal = 2;   # unix signal 1-31; default 15 (SIGTERM)
+  shutdown.grace = 10;   # seconds before escalating to SIGKILL; default 5
+};
 ```
 
 https://devenv.sh/processes/

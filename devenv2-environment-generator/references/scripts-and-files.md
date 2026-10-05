@@ -176,14 +176,17 @@ its contents are copied into the Nix store and become world-readable. Reach for 
 | `dotenv.enable` | boolean | `false` | Load the dotenv file(s) into `env` |
 | `dotenv.filename` | string or list of string | `".env"` | File, or files in precedence order |
 | `dotenv.disableHint` | boolean | `false` | Silence the hint shown when a `.env` exists but the module is off |
+| `dotenv.substitution` | boolean | `false` | Expand `$NAME`, `${NAME}`, `${NAME:-default}` in values; off by default so `$` in passwords/tokens stays literal |
 
 ```nix
 dotenv.enable = true;
 dotenv.filename = [ ".env" ".env.local" ];
 ```
 
-Filenames must start with `.env` — devenv asserts this. Comments and multiline values are
-not supported by the parser.
+Filenames must start with `.env` — devenv asserts this. Since 2.3 the bundled parser
+(`dotenv-ng`) handles `#` comments and quoted multiline values correctly (confirmed with a
+local live test); only enable `dotenv.substitution` once you've checked no value contains a
+literal `$` you want preserved.
 
 https://devenv.sh/integrations/dotenv/
 

@@ -2,7 +2,7 @@
 
 Per-language `languages.*` options for the toolchains this skill generates most often, plus
 the shared conventions (`lsp.*`, `directory`, `import`) that apply across modules. Every
-option path below was confirmed against https://devenv.sh/reference/options/ for devenv 2.2.1.
+option path below was confirmed against https://devenv.sh/reference/options/.
 
 ## Shared shape
 
@@ -73,7 +73,8 @@ languages.rust = {
   targets = [ ];              # extra cross-compilation targets; native only by default
   # toolchainFile = ./rust-toolchain.toml;   # take the toolchain from the repo file
   # mold.enable = true;       # or lld.enable / wild.enable — pick exactly one linker
-  # rustflags = "-C target-cpu=native";
+  # rustflags = "-C target-cpu=native";     # extra flags for the compiler; default ""
+  # rustdocflags = "--cfg docsrs";          # extra flags for rustdoc; default ""; since 2.3
 };
 ```
 
@@ -170,8 +171,8 @@ JSON format, container targets, and how outputs feed `devenv test`.
 
 ## All supported languages
 
-devenv 2.2.1 ships **58** language modules. The index page markets "60+"; the module and page
-count is 58.
+devenv 2.x ships **58** language modules. The index page markets "60+"; the
+module and page count is 58.
 
 ```nix
 languages.<lang>.enable = true;

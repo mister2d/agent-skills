@@ -15,7 +15,7 @@ Paths are relative to the skill root (the directory containing `SKILL.md`).
 | `stacks` | What you build with | `references/languages.md`, `references/services.md` |
 | `runtime` | What runs and when | `references/processes.md`, `references/tasks.md`, `references/scripts-and-files.md` |
 | `composition` | How configs and secrets compose | `references/yaml.md`, `references/composing.md`, `references/secrets.md`, `references/git-hooks.md` |
-| `new-surface` | Newer devenv surfaces | `references/profiles.md`, `references/cli.md`, `references/ai-integration.md` |
+| `new-surface` | Newer devenv surfaces | `references/profiles.md`, `references/cli.md`, `references/ai-integration.md`, `references/machines.md` |
 | `build-misc` | Build outputs and long-tail integrations | `references/outputs-containers-testing.md`, `references/misc-integrations.md` |
 | `examples` | Runnable projects | `examples/**` |
 | `process` | The bump machinery itself | `.claude/**` |

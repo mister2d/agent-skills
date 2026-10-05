@@ -23,6 +23,7 @@ addressable on its own: `devenv tasks run myapp` runs every task in the `myapp` 
 | `exec` | null or string | `null` | Command to execute |
 | `before` | list of string | `[ ]` | Tasks that depend on this one completing first |
 | `after` | list of string | `[ ]` | Tasks that must complete before this one runs |
+| `wantedBy` | null or list of string | `null` | Restrict which tasks select this one when they run (2.4.0; see below) |
 | `status` | null or string | `null` | Probe command; exit 0 skips `exec` |
 | `execIfModified` | list of string | `[ ]` | Glob paths; run only when they changed |
 | `package` | package | `pkgs.bash` | Interpreter used to run `exec` |
@@ -97,6 +98,21 @@ tasks = {
 
 Modules register their own tasks the same way — enabling git hooks adds
 `devenv:git-hooks:install` as a dependency of `devenv:enterShell`.
+
+`wantedBy` narrows who can pull a task in. By default, running a task also runs every task
+ordered after it (`after`/`all` modes), so `before = [ "devenv:enterShell" ]` alone makes a task
+run whenever anything upstream of `devenv:enterShell` runs. Once `wantedBy` is set, only the
+named tasks select this one — `before`/`after` still order it, not select it — though it still
+runs when named directly or pulled in by a selecting task that runs after it. `wantedBy = [ ]`
+opts out of selection by ordering edges entirely.
+
+```nix
+tasks."myapp:fixtures" = {
+  exec = "seed-fixtures";
+  before = [ "devenv:enterTest" ];
+  wantedBy = [ "devenv:enterTest" ];   # only enterTest selects it now
+};
+```
 
 ## Execution modes
 
