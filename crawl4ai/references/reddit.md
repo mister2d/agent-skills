@@ -7,6 +7,10 @@ schema extraction instead of markdown.
 
 ## Standalone (no code)
 ```bash
+# simplest: bounded markdown, with reply expansion
+bash scripts/reddit_thread.sh "https://www.reddit.com/r/rust/comments/1rw12u6/<slug>/"
+
+# or the raw schema route (JSON records)
 C4A_CRAWLER_PARAMS='{"delay_before_return_html":3}' \
   bash scripts/extraction_pipeline.sh --use-schema \
   "https://www.reddit.com/r/rust/comments/1rw12u6/<slug>/" references/reddit_thread_schema.json
@@ -18,27 +22,31 @@ comment_body`). `delay_before_return_html: 3` is needed because comments hydrate
 `hybrid-web-search` does this automatically for `reddit.com/r/*/comments/*` URLs (`src/search/reddit.ts`) and renders
 the records as markdown.
 
-## Getting more than the first ~25 comments (measured)
-| Option | Server change | Result on a 97-comment thread |
-|---|---|---|
-| default + `delay_before_return_html: 3` | none | 25 comments, ~5 s |
-| add `scan_full_page: true, scroll_delay: 0.8, max_scroll_steps: 15` | none | 34 comments, ~17 s (plateaus: 40 steps gave the same 34) |
-| click "more replies" via `/execute_js` | `CRAWL4AI_EXECUTE_JS_ENABLED=true` (server.py:98) | **not validated yet** — see below |
+## Getting more than the first ~25 comments (measured on a 97-comment thread)
+| Option | Server change | Comments | Time |
+|---|---|---|---|
+| default + `delay_before_return_html: 3` | none | 25 | ~5 s |
+| + `scan_full_page: true, scroll_delay: 0.8, max_scroll_steps: 15` | none | 34 (40 steps: same 34) | ~17 s |
+| **`/execute_js` clicks every "N more replies", then re-extract** | `CRAWL4AI_EXECUTE_JS_ENABLED=true` | **55** (46 of 103 on another) | ~7-9 s browser + ~1.4 s extract (~16 s end-to-end in the TS pipeline) |
 
-`scan_full_page` is too slow for the hybrid pipeline's 8 s crawl timeout, so the pipeline uses the 3 s delay only;
-use `scan_full_page` for standalone extraction when depth matters.
+The remaining ~40 are collapsed deeper chains/"continue this thread" links and deleted/removed comments counted in
+`comment_count`; not reachable by "more replies" clicks.
 
-`/execute_js` takes only `{url, scripts}` and returns the post-JS CrawlResult (HTML), with no extraction strategy; the
-`/crawl` endpoint will never accept `js_code` from network callers (always untrusted, even with the admin token).
-So the flow would be: expand comments with `/execute_js`, then run the schema over the returned HTML.
+How the expansion works (`scripts/reddit_thread.sh`, `src/search/reddit.ts`): `POST /execute_js` with a script that
+clicks every `button` matching `/\d+ more repl|more comment/i` (up to 6 rounds, 2.2 s apart), take `.html`, then
+`POST /crawl` with `urls:["raw:<html>"]` + the thread schema. The `return (async()=>…)()` form is required — see
+`rest-api.md` → `/execute_js`.
+
+`hybrid-web-search`: set `CRAWL4AI_REDDIT_EXPAND=true` to use this path (falls back to plain extraction on 403/timeout).
+Off by default because it takes ~16 s per thread versus ~5 s.
 
 ## Limits (measured)
-- Only the **server-rendered** comments are present (~25 of e.g. 97). "Load more" needs scroll/click JS: `js_code` is
-  rejected by the 0.9.0 trust boundary and the gateway's `execute_js` returns 403 until the server sets
-  `CRAWL4AI_EXECUTE_JS_ENABLED=true`.
+- Without expansion only the **server-rendered** comments are present (~25 of e.g. 97). `js_code` over `/crawl` is
+  rejected by the 0.9.0 trust boundary; use `/execute_js` (see above).
 - **Listing/search pages** (`/r/x/`, `/top/`, `/search/`) only server-render ~3 posts and sometimes a JS-challenge page —
   find threads with SearXNG (`site:reddit.com ...`) and extract the thread URLs.
 - `old.reddit.com` redirects anonymous crawlers to a login wall — rewrite to `www.reddit.com`.
 - `.json` endpoints return 403/500 (blocked), as does `oauth.reddit.com`.
 - **Throttling:** ~40 requests in a short burst made the instance's IP get HTTP 500 for ~6 minutes (other sites unaffected).
-  Space Reddit fetches (≥20 s apart worked 6/6).
+  Space Reddit fetches (≥20 s apart worked 6/6). The expand path costs two requests per thread (browser fetch +
+  local `raw:` re-extraction, which does not touch reddit.com).

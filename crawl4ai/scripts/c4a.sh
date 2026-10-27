@@ -8,6 +8,8 @@
 #   CRAWL4AI_URL / CRAWL4AI_API_URL  — service base URL
 #                                      (default: https://crawl4ai.service.internal.novuscotia.com)
 #   CRAWL4AI_AUTH_TOKEN              — Bearer token (default: dummy)
+#   C4A_MAX_CHARS                    — cap on text printed per page/record (default: 30000; 0 = unlimited).
+#                                      Keeps agent context small; truncation is announced in the output.
 #
 # Source this from the other scripts:  source "$(dirname "$0")/c4a.sh"
 
@@ -18,7 +20,12 @@ C4A_TOKEN="${CRAWL4AI_AUTH_TOKEN:-dummy}"
 # token (matching the old crawl_service.py); falls back to the raw token if the
 # /token endpoint is absent or fails. The raw token works on its own.
 c4a_auth() {
-  local tok="$C4A_TOKEN"
+  local tok="$C4A_TOKEN" cache
+  # Cache the resolved token for 10 min: avoids a /token round trip on every script call.
+  cache="${TMPDIR:-/tmp}/c4a-auth-$(id -u)-$(printf '%s' "$C4A_URL" | cksum | cut -d' ' -f1)"
+  if [ -f "$cache" ] && [ -n "$(find "$cache" -mmin -10 2>/dev/null)" ]; then
+    cat "$cache"; return
+  fi
   if [ -n "$C4A_TOKEN" ]; then
     local resp jwt
     resp=$(curl -s -m 10 -X POST "$C4A_URL/token" \
@@ -28,8 +35,13 @@ c4a_auth() {
     jwt=$(printf '%s' "$resp" | jq -r '.access_token // empty' 2>/dev/null || true)
     [ -n "$jwt" ] && tok="$jwt"
   fi
+  ( umask 077; printf '%s' "$tok" > "$cache" ) 2>/dev/null || true
   printf '%s' "$tok"
 }
+
+# jq definition: cap(max) truncates a string to max chars and announces it (max<=0 = unlimited).
+C4A_JQ_CAP='def cap($m): if ($m > 0 and length > $m) then .[0:$m] + "\n\n[truncated: " + ((length - $m)|tostring) + " more chars; raise C4A_MAX_CHARS or use a bm25 filter]" else . end;'
+C4A_CAP="${C4A_MAX_CHARS:-30000}"
 
 # c4a_md <url> [filter] [query] — single-page markdown via POST /md.
 # Prints the markdown string to stdout. filter: raw|fit|bm25|llm (default fit).
@@ -42,7 +54,7 @@ c4a_md() {
   curl -s -m 120 -X POST "$C4A_URL/md" \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $tok" \
-    -d "$payload" | jq -r '.markdown // empty'
+    -d "$payload" | jq -r --argjson m "$C4A_CAP" "$C4A_JQ_CAP"' (.markdown // empty) | cap($m)'
 }
 
 # c4a_crawl <urls-json-array> [crawler-config-json] — multi-URL crawl via POST /crawl.

@@ -34,13 +34,15 @@ The hosted service can be reached two ways. Both hit the same instance (verified
 | Task | Use | Why |
 |---|---|---|
 | Single page → markdown (raw / fit / bm25 / llm) | **Gateway `crawl4ai.md(url, f="bm25", q="...")`** (fallback: `scripts/basic_crawler.sh`) | Small, bounded response; no bash/jq/auth handling |
-| Screenshot / PDF | Gateway `crawl4ai.screenshot` / `.pdf` | Binary-ish results the scripts don't cover |
+| Screenshot / PDF | REST `POST /screenshot` / `/pdf` (not wrapped by the scripts) | The payload is a large base64 blob; the gateway would echo all of it into context |
 | `/crawl` with link lists, schema extraction, multi-URL, adaptive | **REST scripts** (`scripts/*.sh`, `jq`-filtered) | Gateway `crawl4ai.crawl` / `.html` / `.execute_js` return the *full CrawlResult including raw HTML*, and the gateway echoes the entire raw response into the agent's context (measured: ~400K tokens for one Reddit thread). `jq` trims it before it reaches context |
 | Anything run from TypeScript/another program (e.g. hybrid-web-search) | REST via `fetch` | MCP tools are only callable by the agent, not by a script |
 
 Rules when you do call a gateway tool that returns large results:
 - Process inside `executeToolCode` and `print` only a summary — **but the gateway still logs the raw response**, so
-  only use `md` (small) unless the page is known to be small.
+  only use `md` (small) unless the page is known to be small. If the gateway returns `404 Could not find session`,
+  its MCP connection predates a service restart (SSE sessions are in-memory) — restart/reconnect the gateway, and use
+  the REST scripts meanwhile.
 - Starlark has no `json` module: `extracted_content` is a JSON *string*; slice or `.count()` it, or use the REST
   scripts when you need to parse it.
 - `crawl4ai.crawl(urls=[...], crawler_config={"type":"CrawlerRunConfig","params":{...}})` accepts the same
@@ -138,15 +140,18 @@ configurations, and troubleshooting, see
 ## Resources
 
 ### scripts/ (bash + curl + jq — no interpreter required)
-- **c4a.sh** — shared helpers: base URL/token, JWT resolution, `c4a_md` / `c4a_crawl` / `c4a_health`
+**Context safety:** every script caps what it prints at `C4A_MAX_CHARS` (default 30000, `0` = unlimited) and announces truncation; none ever prints raw page HTML. The resolved JWT is cached for 10 min (one `/token` round trip, not one per call).
+
+- **c4a.sh** — shared helpers: base URL/token, JWT resolution (cached), output cap, `c4a_md` / `c4a_crawl` / `c4a_health`
 - **basic_crawler.sh** — single-URL markdown extraction (`POST /md`)
 - **batch_crawler.sh** — concurrent multi-URL processing (`POST /crawl`)
 - **adaptive_crawler.sh** — adaptive crawling with relevance-ranked link following and automatic stopping
-- **extraction_pipeline.sh** — schema-based + LLM extraction (`POST /crawl`, `POST /llm/job`)
+- **extraction_pipeline.sh** — schema-based + LLM extraction (`POST /crawl`, `POST /llm/job`); `C4A_CRAWLER_PARAMS` adds `crawler_config` fields; prints a small status object (never the page) when nothing matched
+- **reddit_thread.sh** — a Reddit thread as bounded markdown: expands "N more replies" via `/execute_js` (≈55 of 97 comments instead of 25), re-extracts with the thread schema. `bash scripts/reddit_thread.sh <thread-url> [--no-expand] [--raw-json]`
 
 ### references/
 - [rest-api.md](references/rest-api.md) — confirmed hosted REST endpoint shapes
-- [reddit.md](references/reddit.md) — clean Reddit thread (post + comments + metadata) extraction with `reddit_thread_schema.json`
+- [reddit.md](references/reddit.md) — clean Reddit thread (post + comments + metadata) extraction: schema, `execute_js` expansion, limits, throttling
 - [complete-sdk-reference.md](references/complete-sdk-reference.md) — full config-parameter reference (maps to `crawler_config` / `browser_config` JSON)
 - [advanced-patterns.md](references/advanced-patterns.md) — advanced use cases, troubleshooting, dynamic content
 

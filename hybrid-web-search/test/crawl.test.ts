@@ -1,6 +1,6 @@
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { crawlAll, buildCrawlBody, pickMarkdown } from '../src/search/crawl.ts';
+import { crawlAll, buildCrawlBody, pickMarkdown, resetAuthCache } from '../src/search/crawl.ts';
 
 const realFetch = globalThis.fetch;
 let calls: { url: string; body: any }[] = [];
@@ -12,7 +12,7 @@ function mockFetch(crawlResponse: { status?: number; json: any }) {
     return new Response(JSON.stringify(crawlResponse.json), { status: crawlResponse.status ?? 200 });
   }) as typeof fetch;
 }
-beforeEach(() => { calls = []; });
+beforeEach(() => { calls = []; resetAuthCache(); });
 afterEach(() => { globalThis.fetch = realFetch; });
 
 test('request body carries the query as a BM25 content filter (0.9.0 schema)', () => {
@@ -62,4 +62,15 @@ test('crawlAll returns [] for empty input without calling the service', async ()
   mockFetch({ json: {} });
   assert.deepEqual(await crawlAll([], 'q', 5000), []);
   assert.equal(calls.length, 0);
+});
+
+test('auth token resolution is cached across crawlAll calls (one /token round trip)', async () => {
+  let tokenCalls = 0;
+  globalThis.fetch = (async (url: any) => {
+    if (String(url).endsWith('/token')) { tokenCalls++; return new Response('{"access_token":"jwt1"}', { status: 200 }); }
+    return new Response(JSON.stringify({ success: true, results: [] }), { status: 200 });
+  }) as typeof fetch;
+  await crawlAll(['https://a/'], 'q', 5000);
+  await crawlAll(['https://b/'], 'q', 5000);
+  assert.equal(tokenCalls, 1, `token calls: ${tokenCalls}`);
 });

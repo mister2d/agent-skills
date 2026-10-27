@@ -34,7 +34,7 @@ case "$mode" in
       '{urls:[$u], crawler_config:({extraction_strategy:{type:"JsonCssExtractionStrategy", params:{schema:$s}}} + $x)}')
     curl -s -m 180 -X POST "$C4A_URL/crawl" \
       -H "Content-Type: application/json" -H "Authorization: Bearer $tok" \
-      -d "$payload" | jq '.results[0].extracted_content // .results[0]'
+      -d "$payload" | jq -r --argjson m "$C4A_CAP" "$C4A_JQ_CAP"' .results[0] | if .extracted_content then (.extracted_content | cap($m)) else ({success, status_code, error_message} | tojson) end'
     ;;
   --generate-schema)
     url="${1:-}"; instr="${2:-}"

@@ -80,3 +80,67 @@ test('reddit thread with no extractable post is dropped (no noisy fallback)', as
   }) as typeof fetch;
   assert.deepEqual(await crawlAll(['https://www.reddit.com/r/rust/comments/abc/t/'], 'q', 5000), []);
 });
+
+import { REDDIT_EXPAND_SCRIPT, buildRedditRawBody, fetchExpandedThread } from '../src/search/reddit.ts';
+
+test('expand script returns its promise (execute_js does not await un-returned async IIFEs)', () => {
+  assert.match(REDDIT_EXPAND_SCRIPT, /^return \(async\s*\(\)\s*=>/);
+  assert.match(REDDIT_EXPAND_SCRIPT, /more repl/i);
+});
+
+test('buildRedditRawBody re-extracts expanded html via raw: with the same schema', () => {
+  const b = buildRedditRawBody('<html>x</html>');
+  assert.deepEqual(b.urls, ['raw:<html>x</html>']);
+  assert.equal(b.crawler_config.params.extraction_strategy.params.schema, REDDIT_THREAD_SCHEMA);
+});
+
+test('fetchExpandedThread: execute_js then raw: extraction; null when endpoint disabled (403)', async () => {
+  const seen: string[] = [];
+  globalThis.fetch = (async (url: any, init: any) => {
+    const u = String(url); seen.push(u.replace(/^https?:\/\/[^/]+/, ''));
+    if (u.endsWith('/execute_js')) return new Response(JSON.stringify({ html: '<html>expanded</html>' }), { status: 200 });
+    const body = JSON.parse(init.body);
+    assert.ok(body.urls[0].startsWith('raw:'));
+    return new Response(JSON.stringify({ success: true, results: [{ url: 'raw:', success: true, extracted_content: JSON.stringify(ROWS) }] }), { status: 200 });
+  }) as typeof fetch;
+  const r = await fetchExpandedThread('https://svc', 'tok', 'https://old.reddit.com/r/rust/comments/abc/t/', 5000);
+  assert.deepEqual(seen, ['/execute_js', '/crawl']);
+  assert.equal(r?.url, 'https://www.reddit.com/r/rust/comments/abc/t/');
+  assert.match(r!.extracted_content, /Borrow checker/);
+
+  globalThis.fetch = (async () => new Response('{"detail":"execute_js endpoint is disabled"}', { status: 403 })) as typeof fetch;
+  assert.equal(await fetchExpandedThread('https://svc', 'tok', 'https://www.reddit.com/r/rust/comments/abc/t/', 5000), null);
+});
+
+test('formatThread caps output and says so', () => {
+  const many = [ROWS[0], ...Array.from({ length: 400 }, (_, i) => ({ thingid: 't1_' + i, author: 'u' + i, score: String(400 - i), depth: '0', comment_body: 'word '.repeat(40) }))];
+  const md = formatThread(many, { maxChars: 3000 })!;
+  assert.ok(md.length <= 3300, `len ${md.length}`);
+  assert.match(md, /truncated/i);
+  assert.match(md, /Showing \d+ of 97 comments/);
+});
+
+test('CRAWL4AI_REDDIT_EXPAND=true routes through execute_js; falls back to plain extraction on 403', async () => {
+  process.env.CRAWL4AI_REDDIT_EXPAND = 'true';
+  try {
+    const paths: string[] = [];
+    globalThis.fetch = (async (url: any) => {
+      const p = String(url).replace(/^https?:\/\/[^/]+/, ''); paths.push(p);
+      if (p === '/token') return new Response('{}', { status: 404 });
+      if (p === '/execute_js') return new Response('{"detail":"disabled"}', { status: 403 });
+      return new Response(JSON.stringify({ success: true, results: [{ url: 'https://www.reddit.com/r/rust/comments/abc/t/', success: true, extracted_content: JSON.stringify(ROWS) }] }), { status: 200 });
+    }) as typeof fetch;
+    const out = await crawlAll(['https://www.reddit.com/r/rust/comments/abc/t/'], 'q', 5000);
+    assert.ok(paths.includes('/execute_js'));
+    assert.equal(out.length, 1, 'fell back to plain /crawl extraction');
+  } finally { delete process.env.CRAWL4AI_REDDIT_EXPAND; }
+});
+
+import { chunkText } from '../src/search/chunk.ts';
+test('formatted threads chunk to ~target size (comments are separate paragraphs)', () => {
+  const many = [ROWS[0], ...Array.from({ length: 60 }, (_, i) => ({ thingid: 't1_' + i, author: 'u' + i, score: '5', depth: String(i % 3), comment_body: 'word '.repeat(60) }))];
+  const md = formatThread(many)!;
+  const chunks = chunkText(md, 512);
+  const biggest = Math.max(...chunks.map((c: any) => (typeof c === 'string' ? c : c.text ?? c.content).length));
+  assert.ok(biggest < 4000, `largest chunk ${biggest} chars (512 tokens ≈ 2000 chars)`);
+});
