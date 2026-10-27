@@ -48,7 +48,7 @@ All optional — the defaults below are baked in:
 The Crawl4AI service can also be used standalone to crawl specific URLs without going through the hybrid search pipeline. Use this when the user asks to crawl a specific website or page.
 
 ### Interface choice
-For a **single** URL when you only need relevant text, prefer the gateway tool `crawl4ai.md(url=..., f="bm25", q="<query>")` (same service, small bounded response, no auth/bash needed). Use the REST call below for multiple URLs, extraction, or when running outside the agent. Do **not** use gateway `crawl4ai.crawl`/`.html`/`.execute_js`/`.screenshot` for large pages: the gateway echoes the full raw response (HTML/base64) into context. See `crawl4ai` skill → *Choosing an interface*.
+For a **single** URL when you only need relevant text, and your agent has the Crawl4AI MCP server connected, prefer its `md(url=..., f="bm25", q="<query>")` tool (same service, small bounded response, no auth/bash needed). Use the REST call below for multiple URLs, extraction, or when running outside the agent. Do **not** use the MCP `crawl`/`html`/`execute_js`/`screenshot` tools for large pages: many hosts echo the full raw response (HTML/base64) into context. See `crawl4ai` skill → *Choosing an interface*.
 
 ### How to use
 1. Collect the list of URLs to crawl (from user input, search results, or other sources)
