@@ -65,6 +65,7 @@ Each `results[]` entry (key fields):
 result to its URL via `.url`, not by index.
 
 ### `POST /llm/job` — async LLM extraction / schema generation
+_(stores task state in Redis; returns `invalid username-password pair or user is disabled` if the server's Redis auth is misconfigured — verified working after the password fix)_
 Request (`LlmJobPayload`):
 ```json
 { "url": "https://…", "q": "instruction or query", "schema": "…", "provider": "…", "temperature": 0.0, "cache": false }
@@ -156,10 +157,30 @@ When a strategy/generator is sent over REST, use the `{"type": "<Name>",
 `network_requests`, `console_messages`, `crawl_stats`, `session_id`,
 `ssl_certificate`, `response_headers`.
 
+### `POST /execute_js` — run page JS, get the resulting HTML (opt-in)
+
+Disabled by default upstream (CWE-94; `SECURITY.md`): **403 "execute_js endpoint is disabled"** unless the server sets
+`CRAWL4AI_EXECUTE_JS_ENABLED=true` (read at `deploy/docker/server.py:98`). Enabled on the hosted instance; validated.
+
+```json
+{ "url": "https://example.com", "scripts": ["return (async()=>{ ...; return 1 })()"] }
+```
+- Response is a full CrawlResult (`html` after the scripts ran, `status_code`, ...) — **~2.7 MB for a Reddit thread**:
+  always filter with `jq` (`jq -r .html > file`), never print it.
+- Script return values are **not** returned (`js_execution_result` only says `success`). To read a value back, write it
+  into the DOM (`document.body.setAttribute("data-x", JSON.stringify(v))`) and grep it from `.html`.
+- Scripts are wrapped in a function: **a promise is awaited only if you `return` it**. A bare `(async()=>{...})()` runs
+  un-awaited and the HTML is captured early.
+- No extraction strategy here. To extract from the expanded DOM, POST it back as `urls:["raw:<html>"]` to `/crawl`
+  with a `JsonCssExtractionStrategy` (works; ~1.4 s). `js_code` over `/crawl` stays rejected (network requests are
+  always "untrusted", even with the admin token).
+- Security: anyone who can reach the API can run arbitrary JS in the server's browser. The hosted instance's bearer token
+  is `dummy` — keep it network-restricted.
+
 ## Other endpoints (available, not wrapped by the scripts)
 
 `GET /ask` (query: `context_type`, `query`, `score_ratio`, `max_results`),
-`POST /html`, `POST /screenshot`, `POST /pdf`, `POST /execute_js`,
+`POST /html`, `POST /screenshot`, `POST /pdf`,
 `POST /crawl/stream`, `POST /crawl/job` (+ `GET /crawl/job/<task_id>`),
 `GET /mcp/schema`, `GET /config/dump`, `GET /metrics`, and a `/monitor/*`
 family (browsers, requests, logs, stats).
