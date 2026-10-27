@@ -61,7 +61,12 @@ bash scripts/extraction_pipeline.sh --use-schema https://shop.com schema.json
 
 `crawler_config` / `browser_config` accept the standard Crawl4AI config params
 (`page_timeout`, `wait_for`, `js_code`, `screenshot`, `session_id`,
-`extraction_strategy`, `markdown_generator`, `headless`, `user_agent`, ...). See
+`extraction_strategy`, `markdown_generator`, `headless`, `user_agent`, ...). **0.9.0 trust boundary:** the
+hosted service rejects `magic`, `simulate_user`, `override_navigator`, `js_code`,
+`fallback_fetch_function` and `proxy_config` from API callers ("not permitted ... from an
+untrusted request"); `enable_stealth`, `user_agent_mode`, `text_mode`, `wait_until` and
+`page_timeout` are accepted. A URL that fails in a batch is reported as `success:false` with
+`status_code`/`error_message`; when every URL fails `/crawl` returns a bare HTTP 500. See
 [references/rest-api.md](references/rest-api.md) for the confirmed endpoint
 shapes and [references/complete-sdk-reference.md](references/complete-sdk-reference.md)
 for the full config-parameter reference.

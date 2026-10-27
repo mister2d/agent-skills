@@ -53,22 +53,33 @@ The Crawl4AI service can also be used standalone to crawl specific URLs without 
    ```json
    {
      "urls": ["https://example.com/page1", "https://example.com/page2"],
-     "query": "your search query here",
-     "extract": "markdown",
-     "concurrent": 3
+     "crawler_config": {
+       "type": "CrawlerRunConfig",
+       "params": {
+         "markdown_generator": {
+           "type": "DefaultMarkdownGenerator",
+           "params": {
+             "content_filter": { "type": "BM25ContentFilter", "params": { "user_query": "your search query here" } }
+           }
+         }
+       }
+     }
    }
    ```
 3. Parse the response: `{ success, results: [{ url, markdown: { fit_markdown, raw_markdown }, cleaned_html, metadata: { title } }] }`
 4. Prefer content in priority order: `fit_markdown` → `raw_markdown` → `cleaned_html`
-   - `fit_markdown` is BM25-filtered to the query (returned when `query` param is provided); it's shorter and more relevant
+   - `fit_markdown` is BM25-filtered to the query (only populated when the `BM25ContentFilter` above is sent); it's shorter and more relevant. It can be empty/near-empty on index pages (Hacker News, Reddit) — fall back to `raw_markdown` when it is under ~200 chars (the pipeline's `pickMarkdown` does this)
    - `raw_markdown` is the full page converted to markdown
    - `cleaned_html` is a fallback when markdown generation fails
 
 ### Config options
-- `extract`: Use `"markdown"` for clean text, omit for raw HTML
-- `query`: Search query string — enables server-side BM25 content filtering, producing `fit_markdown` in the response
-- `concurrent`: Number of URLs to crawl in parallel (default 3)
-- `timeout`: Request timeout in seconds (default 30)
+- `crawler_config.params.markdown_generator.params.content_filter.params.user_query`: the query for server-side BM25 filtering (produces `fit_markdown`)
+- **Do not send** the legacy flat fields `query`, `extract`, `concurrent` — Crawl4AI 0.9.0 silently ignores them, so no filtering happens and responses are ~6x larger
+- Several URLs in one request are crawled in parallel by the server
+- Response: a URL that fails inside a batch comes back as `success:false` with `status_code`/`error_message` (e.g. `401 Blocked by anti-bot protection: DataDome captcha`); if **every** URL fails the service returns HTTP 500 with no detail
+
+### 0.9.0 trust boundary (API callers)
+The service rejects these config fields from API requests ("not permitted ... from an untrusted request"): `magic`, `simulate_user`, `override_navigator`, `js_code`, `fallback_fetch_function`, `proxy_config`. Accepted and verified: `enable_stealth`, `user_agent_mode`, `text_mode` (browser_config), `wait_until`, `page_timeout`. `enable_stealth` + random UA did **not** unblock Reuters/NYT/Stack Overflow in testing.
 
 ### Pitfalls for ad-hoc crawling
 - **Rate limits**: Don't exceed 10 URLs per request. Batch larger lists.
