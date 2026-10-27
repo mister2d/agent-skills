@@ -1,0 +1,86 @@
+{
+  "name": "reddit_thread",
+  "baseSelector": "shreddit-post, shreddit-comment",
+  "fields": [
+    {
+      "name": "id",
+      "type": "attribute",
+      "attribute": "id"
+    },
+    {
+      "name": "thingid",
+      "type": "attribute",
+      "attribute": "thingid"
+    },
+    {
+      "name": "author",
+      "type": "attribute",
+      "attribute": "author"
+    },
+    {
+      "name": "score",
+      "type": "attribute",
+      "attribute": "score"
+    },
+    {
+      "name": "depth",
+      "type": "attribute",
+      "attribute": "depth"
+    },
+    {
+      "name": "created",
+      "type": "attribute",
+      "attribute": "created"
+    },
+    {
+      "name": "created_ts",
+      "type": "attribute",
+      "attribute": "created-timestamp"
+    },
+    {
+      "name": "permalink",
+      "type": "attribute",
+      "attribute": "permalink"
+    },
+    {
+      "name": "title",
+      "type": "attribute",
+      "attribute": "post-title"
+    },
+    {
+      "name": "comment_count",
+      "type": "attribute",
+      "attribute": "comment-count"
+    },
+    {
+      "name": "upvote_ratio",
+      "type": "attribute",
+      "attribute": "upvote-ratio"
+    },
+    {
+      "name": "subreddit",
+      "type": "attribute",
+      "attribute": "subreddit-prefixed-name"
+    },
+    {
+      "name": "post_type",
+      "type": "attribute",
+      "attribute": "post-type"
+    },
+    {
+      "name": "link",
+      "type": "attribute",
+      "attribute": "content-href"
+    },
+    {
+      "name": "comment_body",
+      "type": "text",
+      "selector": "div[slot=comment]"
+    },
+    {
+      "name": "post_body",
+      "type": "text",
+      "selector": "div[slot=text-body]"
+    }
+  ]
+}

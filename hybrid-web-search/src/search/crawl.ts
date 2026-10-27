@@ -1,6 +1,8 @@
 const CRAWL4AI_BASE = process.env.CRAWL4AI_URL ?? process.env.CRAWL4AI_API_URL ?? 'https://crawl4ai.service.internal.novuscotia.com';
 const CRAWL4AI_TOKEN = process.env.CRAWL4AI_AUTH_TOKEN ?? 'dummy';
 
+import { isRedditThreadUrl, buildRedditBody, threadFromResult } from './reddit.js';
+
 export interface CrawlResult {
   url: string;
   title: string;
@@ -69,6 +71,37 @@ export function pickMarkdown(r: any): string {
   return m?.raw_markdown || fit || r?.cleaned_html || '';
 }
 
+async function postCrawl(body: unknown, token: string, timeoutMs: number, label: string): Promise<any[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(`${CRAWL4AI_BASE}/crawl`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    // The service returns HTTP 500 when *every* URL in the request fails (e.g. all blocked).
+    if (!resp.ok) {
+      if (process.env.CRAWL_DEBUG) console.error(`[crawl] HTTP ${resp.status} for ${label}`);
+      return [];
+    }
+    const data = await resp.json();
+    if (!data.success || !data.results) return [];
+    return data.results.filter((r: any) => {
+      // Per-URL failures arrive as success:false (+ status_code/error_message) inside a 200 batch.
+      if (r.success === false && process.env.CRAWL_DEBUG) {
+        console.error(`[crawl] ${r.url}: ${r.status_code ?? ''} ${r.error_message ?? ''}`);
+      }
+      return r.success !== false;
+    });
+  } catch {
+    clearTimeout(timeout);
+    return [];
+  }
+}
+
 export async function crawlAll(
   urls: string[],
   query: string,
@@ -77,47 +110,27 @@ export async function crawlAll(
   if (urls.length === 0) return [];
 
   const token = await resolveAuthToken(10000);
+  const redditUrls = urls.filter(isRedditThreadUrl);
+  const otherUrls = urls.filter((u) => !isRedditThreadUrl(u));
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const [other, reddit] = await Promise.all([
+    otherUrls.length
+      ? postCrawl(buildCrawlBody(otherUrls, query), token, timeoutMs, otherUrls.join(', '))
+      : Promise.resolve([]),
+    // Reddit threads: structured extraction (clean post + comments) instead of 45K chars of noise.
+    // A thread that yields no post record (JS challenge/blocked) is dropped, not sent as noise.
+    redditUrls.length
+      ? postCrawl(buildRedditBody(redditUrls), token, timeoutMs, redditUrls.join(', '))
+      : Promise.resolve([]),
+  ]);
 
-  try {
-    const resp = await fetch(`${CRAWL4AI_BASE}/crawl`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(buildCrawlBody(urls, query)),
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
+  const out: CrawlResult[] = other
+    .map((r: any) => ({ url: r.url, title: r.metadata?.title ?? r.url, markdown: pickMarkdown(r) }))
+    .filter((r: CrawlResult) => r.markdown.length > 0);
 
-    // The service returns HTTP 500 when *every* URL in the request fails (e.g. all blocked).
-    if (!resp.ok) {
-      if (process.env.CRAWL_DEBUG) console.error(`[crawl] HTTP ${resp.status} for ${urls.join(', ')}`);
-      return [];
-    }
-
-    const data = await resp.json();
-    if (!data.success || !data.results) return [];
-
-    return data.results
-      .filter((r: any) => {
-        // Per-URL failures arrive as success:false (+ status_code/error_message) inside a 200 batch.
-        if (r.success === false && process.env.CRAWL_DEBUG) {
-          console.error(`[crawl] ${r.url}: ${r.status_code ?? ''} ${r.error_message ?? ''}`);
-        }
-        return r.success !== false;
-      })
-      .map((r: any) => ({
-        url: r.url,
-        title: r.metadata?.title ?? r.url,
-        markdown: pickMarkdown(r),
-      }))
-      .filter((r: CrawlResult) => r.markdown.length > 0);
-  } catch {
-    clearTimeout(timeout);
-    return [];
+  for (const r of reddit) {
+    const t = threadFromResult(r);
+    if (t) out.push({ url: r.url, title: t.title, markdown: t.markdown });
   }
+  return out;
 }

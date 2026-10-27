@@ -11,6 +11,8 @@
 #     One-time LLM call to produce a CSS schema. Submits POST /llm/job (async)
 #     and prints the job handle; poll GET /llm/job/<task_id> for the result.
 #
+# Env: C4A_CRAWLER_PARAMS='{"delay_before_return_html":3}' adds crawler_config fields (e.g. for Reddit).
+#
 # schema.json shape (JsonCssExtractionStrategy):
 #   { "name": "articles", "baseSelector": "article.post",
 #     "fields": [ {"name":"title","selector":"h2","type":"text"} ] }
@@ -26,8 +28,10 @@ case "$mode" in
     [ -n "$url" ] && [ -n "$schema_file" ] || { echo "usage: $0 --use-schema <url> <schema.json>" >&2; exit 2; }
     [ -f "$schema_file" ] || { echo "no such file: $schema_file" >&2; exit 2; }
     schema=$(cat "$schema_file")
-    payload=$(jq -n --arg u "$url" --argjson s "$schema" \
-      '{urls:[$u], crawler_config:{extraction_strategy:{type:"JsonCssExtractionStrategy", params:{schema:$s}}}}')
+    # C4A_CRAWLER_PARAMS: optional JSON object merged into crawler_config, e.g. '{"delay_before_return_html":3}'
+    extra="${C4A_CRAWLER_PARAMS:-{\}}"
+    payload=$(jq -n --arg u "$url" --argjson s "$schema" --argjson x "$extra" \
+      '{urls:[$u], crawler_config:({extraction_strategy:{type:"JsonCssExtractionStrategy", params:{schema:$s}}} + $x)}')
     curl -s -m 180 -X POST "$C4A_URL/crawl" \
       -H "Content-Type: application/json" -H "Authorization: Bearer $tok" \
       -d "$payload" | jq '.results[0].extracted_content // .results[0]'

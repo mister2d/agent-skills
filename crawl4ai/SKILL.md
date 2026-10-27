@@ -126,6 +126,7 @@ configurations, and troubleshooting, see
 
 ### references/
 - [rest-api.md](references/rest-api.md) — confirmed hosted REST endpoint shapes
+- [reddit.md](references/reddit.md) — clean Reddit thread (post + comments + metadata) extraction with `reddit_thread_schema.json`
 - [complete-sdk-reference.md](references/complete-sdk-reference.md) — full config-parameter reference (maps to `crawler_config` / `browser_config` JSON)
 - [advanced-patterns.md](references/advanced-patterns.md) — advanced use cases, troubleshooting, dynamic content
 
