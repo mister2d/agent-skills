@@ -18,6 +18,20 @@ comment_body`). `delay_before_return_html: 3` is needed because comments hydrate
 `hybrid-web-search` does this automatically for `reddit.com/r/*/comments/*` URLs (`src/search/reddit.ts`) and renders
 the records as markdown.
 
+## Getting more than the first ~25 comments (measured)
+| Option | Server change | Result on a 97-comment thread |
+|---|---|---|
+| default + `delay_before_return_html: 3` | none | 25 comments, ~5 s |
+| add `scan_full_page: true, scroll_delay: 0.8, max_scroll_steps: 15` | none | 34 comments, ~17 s (plateaus: 40 steps gave the same 34) |
+| click "more replies" via `/execute_js` | `CRAWL4AI_EXECUTE_JS_ENABLED=true` (server.py:98) | **not validated yet** — see below |
+
+`scan_full_page` is too slow for the hybrid pipeline's 8 s crawl timeout, so the pipeline uses the 3 s delay only;
+use `scan_full_page` for standalone extraction when depth matters.
+
+`/execute_js` takes only `{url, scripts}` and returns the post-JS CrawlResult (HTML), with no extraction strategy; the
+`/crawl` endpoint will never accept `js_code` from network callers (always untrusted, even with the admin token).
+So the flow would be: expand comments with `/execute_js`, then run the schema over the returned HTML.
+
 ## Limits (measured)
 - Only the **server-rendered** comments are present (~25 of e.g. 97). "Load more" needs scroll/click JS: `js_code` is
   rejected by the 0.9.0 trust boundary and the gateway's `execute_js` returns 403 until the server sets

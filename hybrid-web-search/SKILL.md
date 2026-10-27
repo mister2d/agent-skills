@@ -47,6 +47,9 @@ All optional — the defaults below are baked in:
 ## Ad-Hoc Web Page Crawling (Crawl4AI Direct)
 The Crawl4AI service can also be used standalone to crawl specific URLs without going through the hybrid search pipeline. Use this when the user asks to crawl a specific website or page.
 
+### Interface choice
+For a **single** URL when you only need relevant text, prefer the gateway tool `crawl4ai.md(url=..., f="bm25", q="<query>")` (same service, small bounded response, no auth/bash needed). Use the REST call below for multiple URLs, extraction, or when running outside the agent. Do **not** use gateway `crawl4ai.crawl`/`.html` for large pages: the gateway echoes the full raw HTML response into context. See `crawl4ai` skill → *Choosing an interface*.
+
 ### How to use
 1. Collect the list of URLs to crawl (from user input, search results, or other sources)
 2. Send a POST request to `https://crawl4ai.service.internal.novuscotia.com/crawl` with:

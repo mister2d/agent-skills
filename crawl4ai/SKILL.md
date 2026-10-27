@@ -26,6 +26,26 @@ defaults are baked in):
 The scripts resolve a short-lived JWT from the raw token via `POST /token` and
 fall back to the raw token if that endpoint is absent.
 
+## Choosing an interface: gateway MCP tools vs. REST scripts
+
+The hosted service can be reached two ways. Both hit the same instance (verified: gateway `md` and
+`POST /md` return identical output). Pick by payload size, not preference:
+
+| Task | Use | Why |
+|---|---|---|
+| Single page → markdown (raw / fit / bm25 / llm) | **Gateway `crawl4ai.md(url, f="bm25", q="...")`** (fallback: `scripts/basic_crawler.sh`) | Small, bounded response; no bash/jq/auth handling |
+| Screenshot / PDF | Gateway `crawl4ai.screenshot` / `.pdf` | Binary-ish results the scripts don't cover |
+| `/crawl` with link lists, schema extraction, multi-URL, adaptive | **REST scripts** (`scripts/*.sh`, `jq`-filtered) | Gateway `crawl4ai.crawl` / `.html` / `.execute_js` return the *full CrawlResult including raw HTML*, and the gateway echoes the entire raw response into the agent's context (measured: ~400K tokens for one Reddit thread). `jq` trims it before it reaches context |
+| Anything run from TypeScript/another program (e.g. hybrid-web-search) | REST via `fetch` | MCP tools are only callable by the agent, not by a script |
+
+Rules when you do call a gateway tool that returns large results:
+- Process inside `executeToolCode` and `print` only a summary — **but the gateway still logs the raw response**, so
+  only use `md` (small) unless the page is known to be small.
+- Starlark has no `json` module: `extracted_content` is a JSON *string*; slice or `.count()` it, or use the REST
+  scripts when you need to parse it.
+- `crawl4ai.crawl(urls=[...], crawler_config={"type":"CrawlerRunConfig","params":{...}})` accepts the same
+  `{type, params}` schema as REST (verified with `JsonCssExtractionStrategy`).
+
 ## Quick Start
 
 ```bash
