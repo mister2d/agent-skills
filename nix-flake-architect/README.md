@@ -54,7 +54,7 @@ nix-flake-architect/
 ## Requirements
 
 ### Required
-- An agent runtime that supports the skill package format (e.g., `opencode`)
+- An agent runtime that supports the skill package format
 - The agent must be able to read files from `references/` and `templates/` on demand
 
 ### Optional but Strongly Recommended
@@ -72,19 +72,8 @@ nix-flake-architect/
 
 ## Installation
 
-### opencode
-
-Copy the skill directory into your project's skill store:
-
-```bash
-cp -r nix-flake-architect /path/to/project/.opencode/skills/
-```
-
-Or install globally:
-
-```bash
-cp -r nix-flake-architect ~/.config/opencode/skills/
-```
+Copy or symlink this directory into your agent's skills directory (project-local or global,
+whichever your agent supports). No other setup is required.
 
 The skill is activated when the agent detects flake-related intent in the user's request
 (see the `description` field in `SKILL.md` for the full trigger vocabulary).

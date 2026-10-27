@@ -26,27 +26,26 @@ defaults are baked in):
 The scripts resolve a short-lived JWT from the raw token via `POST /token` and
 fall back to the raw token if that endpoint is absent.
 
-## Choosing an interface: gateway MCP tools vs. REST scripts
+## Choosing an interface: MCP tools vs. REST scripts
 
-The hosted service can be reached two ways. Both hit the same instance (verified: gateway `md` and
+If your agent has the Crawl4AI MCP server connected (tools such as `md`, `crawl`, `html`, `execute_js`,
+`screenshot`, `pdf`), it reaches the same instance as the REST scripts (verified: the MCP `md` tool and
 `POST /md` return identical output). Pick by payload size, not preference:
 
 | Task | Use | Why |
 |---|---|---|
-| Single page → markdown (raw / fit / bm25 / llm) | **Gateway `crawl4ai.md(url, f="bm25", q="...")`** (fallback: `scripts/basic_crawler.sh`) | Small, bounded response; no bash/jq/auth handling |
-| Screenshot / PDF | REST `POST /screenshot` / `/pdf` (not wrapped by the scripts) | The payload is a large base64 blob; the gateway would echo all of it into context |
-| `/crawl` with link lists, schema extraction, multi-URL, adaptive | **REST scripts** (`scripts/*.sh`, `jq`-filtered) | Gateway `crawl4ai.crawl` / `.html` / `.execute_js` return the *full CrawlResult including raw HTML*, and the gateway echoes the entire raw response into the agent's context (measured: ~400K tokens for one Reddit thread). `jq` trims it before it reaches context |
-| Anything run from TypeScript/another program (e.g. hybrid-web-search) | REST via `fetch` | MCP tools are only callable by the agent, not by a script |
+| Single page → markdown (raw / fit / bm25 / llm) | **MCP `md(url, f="bm25", q="...")`** if available (fallback: `scripts/basic_crawler.sh`) | Small, bounded response; no bash/jq/auth handling |
+| Screenshot / PDF | REST `POST /screenshot` / `/pdf` (not wrapped by the scripts) | The payload is a large base64 blob |
+| `/crawl` with link lists, schema extraction, multi-URL, adaptive | **REST scripts** (`scripts/*.sh`, `jq`-filtered) | MCP `crawl` / `html` / `execute_js` return the *full CrawlResult including raw HTML*. Many MCP hosts and tool gateways put the whole raw tool response into the agent's context regardless of what the agent prints (measured: ~400K tokens for one Reddit thread). `jq` trims it before it reaches context |
+| Anything run from a program (e.g. hybrid-web-search) | REST via `fetch`/`curl` | MCP tools are callable only by the agent, not by a script |
 
-Rules when you do call a gateway tool that returns large results:
-- Process inside `executeToolCode` and `print` only a summary — **but the gateway still logs the raw response**, so
-  only use `md` (small) unless the page is known to be small. If the gateway returns `404 Could not find session`,
-  its MCP connection predates a service restart (SSE sessions are in-memory) — restart/reconnect the gateway, and use
-  the REST scripts meanwhile.
-- Starlark has no `json` module: `extracted_content` is a JSON *string*; slice or `.count()` it, or use the REST
-  scripts when you need to parse it.
-- `crawl4ai.crawl(urls=[...], crawler_config={"type":"CrawlerRunConfig","params":{...}})` accepts the same
-  `{type, params}` schema as REST (verified with `JsonCssExtractionStrategy`).
+Notes when using the MCP tools:
+- Prefer `md` (small). Use `crawl`/`html`/`execute_js`/`screenshot` only when the page is known to be small, because
+  the host may echo the entire response into context.
+- `404 Could not find session` means the MCP connection predates a service restart (the server's SSE sessions are
+  in-memory) — reconnect the MCP client, and use the REST scripts meanwhile.
+- `extracted_content` is a JSON *string*. If your agent runs MCP calls in a sandbox without a JSON parser, slice or
+  count within the string, or use the REST scripts when you need to parse it.
 
 ## Quick Start
 

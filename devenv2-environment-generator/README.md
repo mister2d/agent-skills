@@ -88,8 +88,7 @@ evaluation cache.
 ## Usage
 
 Install it as an agent skill — copy or symlink this directory into your agent's
-skill directory (for Claude Code, `~/.claude/skills/devenv2-environment-generator/`),
-and it triggers automatically on dev-environment requests.
+skill directory, and it triggers automatically on dev-environment requests.
 
 To invoke it explicitly, point the agent at this repository's `SKILL.md`:
 
