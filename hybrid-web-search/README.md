@@ -63,15 +63,17 @@ Content-Type: application/json
 
 {
   "urls": ["https://example.com/page1"],
-  "query": "your query",
-  "extract": "markdown",
-  "concurrent": 3
+  "crawler_config": {
+    "type": "CrawlerRunConfig",
+    "params": { "markdown_generator": { "type": "DefaultMarkdownGenerator",
+      "params": { "content_filter": { "type": "BM25ContentFilter", "params": { "user_query": "your query" } } } } }
+  }
 }
 ```
 
 Response shape: `{ success, results: [{ url, markdown: { fit_markdown, raw_markdown }, cleaned_html, metadata: { title } }] }`
 
-Content priority: `fit_markdown` (BM25-filtered, returned when `query` is provided) → `raw_markdown` → `cleaned_html`.
+Content priority: `fit_markdown` (BM25-filtered, returned when `query` is provided) → `raw_markdown` → `cleaned_html`. `fit_markdown` is only produced when the `BM25ContentFilter` shown above is sent (the old flat `query`/`extract`/`concurrent` fields are ignored by 0.9.0); the pipeline falls back to `raw_markdown` when it is under 200 chars.
 
 ## Known Site Behaviours
 
